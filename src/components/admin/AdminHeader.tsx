@@ -129,44 +129,41 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
           </div>
 
           {/* Right: Quick Action Buttons & Public Switch */}
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               id="admin-header-create-event-btn"
               onClick={onOpenCreateEvent}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-bold shadow-xs transition-colors"
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Create Event</span>
             </button>
 
             <button
-              id="admin-header-schedule-btn"
-              onClick={() => onNavigateSection('schedule')}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold transition-colors"
+              id="admin-header-results-btn"
+              onClick={() => onNavigateSection('results')}
+              className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold transition-colors cursor-pointer"
             >
-              <Calendar className="w-3.5 h-3.5 text-slate-400" />
-              <span className="hidden sm:inline">Manage Schedule</span>
-              <span className="sm:hidden">Schedule</span>
+              <FileCheck2 className="w-3.5 h-3.5 text-blue-600" />
+              <span>Enter Results</span>
             </button>
 
             <button
-              id="admin-header-results-btn"
-              onClick={() => onNavigateSection('results')}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold transition-colors"
+              id="admin-header-schedule-btn"
+              onClick={() => onNavigateSection('schedule')}
+              className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold transition-colors cursor-pointer"
             >
-              <FileCheck2 className="w-3.5 h-3.5 text-blue-600" />
-              <span className="hidden sm:inline">Enter Results</span>
-              <span className="sm:hidden">Results</span>
+              <Calendar className="w-3.5 h-3.5 text-slate-400" />
+              <span>Schedule</span>
             </button>
 
             <button
               id="admin-header-standings-btn"
               onClick={() => onNavigateSection('standings')}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold transition-colors"
+              className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold transition-colors cursor-pointer"
             >
               <Trophy className="w-3.5 h-3.5 text-amber-500" />
-              <span className="hidden md:inline">View Standings</span>
-              <span className="md:hidden">Standings</span>
+              <span>Standings</span>
             </button>
 
             <div className="h-4 w-px bg-slate-200 mx-0.5 hidden sm:block" />
@@ -174,11 +171,11 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
             <button
               id="admin-header-public-btn"
               onClick={onBackToPublic}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-slate-500 hover:text-blue-700 hover:bg-blue-50/60 text-xs font-medium transition-colors"
+              className="inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-slate-600 hover:text-blue-700 hover:bg-blue-50/60 border border-slate-200 sm:border-transparent text-xs font-medium transition-colors cursor-pointer"
               title="Return to public MSUN PALAKASAN portal"
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline">Public Site</span>
+              <span className="hidden sm:inline">Public Site</span>
             </button>
           </div>
         </div>

@@ -340,17 +340,19 @@ export const INITIAL_EVENTS: PalakasanEvent[] = [
     ],
   },
 
-  // 2. Completed Event: Hiphop Dance
+  // 2. Completed Event: Hiphop Dance (Cultural Major)
   {
     id: 'ev-cultural-01',
     eventName: 'Hiphop Dance Competition',
     category: 'cultural',
+    pointTier: 'major',
+    isMajor: true,
     eventType: 'Group Performance',
     date: '2026-09-15',
     startTime: '07:00 PM',
     endTime: '09:00 PM',
     venue: 'TSAC',
-    description: 'Group choreography competition highlighting urban rhythms, stunts, and street dance culture.',
+    description: 'Premier group choreography competition highlighting urban rhythms, stunts, and street dance culture (Cultural Major Tier).',
     participatingColleges: ['CBIT', 'CESS-IDS', 'CFMS', 'CELS'],
     matchup: 'Open Group Showdown',
     status: 'completed',
@@ -365,17 +367,19 @@ export const INITIAL_EVENTS: PalakasanEvent[] = [
     ],
   },
 
-  // 3. Completed Event: Balak Performance
+  // 3. Completed Event: Balak Performance (Literary Major)
   {
     id: 'ev-literary-01',
     eventName: 'Balak Performance',
     category: 'literary',
+    pointTier: 'major',
+    isMajor: true,
     eventType: 'Individual',
     date: '2026-09-15',
     startTime: '10:00 AM',
     endTime: '11:30 AM',
     venue: 'MSUN Function Hall',
-    description: 'Traditional Bisaya poetic oratory celebrating regional identity, history, and values.',
+    description: 'Traditional Bisaya poetic oratory celebrating regional identity, history, and values (Literary Major Tier).',
     participatingColleges: ['CBIT', 'CESS-IDS', 'CFMS', 'CELS'],
     matchup: 'Solo Oratory Division',
     status: 'completed',
@@ -470,29 +474,33 @@ export const INITIAL_EVENTS: PalakasanEvent[] = [
     })(),
   },
 
-  // 7. Upcoming: Extemporaneous Speech
+  // 7. Upcoming: Extemporaneous Speech (Literary Minor)
   {
     id: 'ev-literary-02',
     eventName: 'Extemporaneous Speech',
     category: 'literary',
+    pointTier: 'minor',
+    isMajor: false,
     eventType: 'Individual',
     competitionFormat: 'individual',
     date: '2026-09-16',
     startTime: '01:30 PM',
     endTime: '03:00 PM',
     venue: 'MSUN Function Hall',
-    description: 'Spontaneous oration on contemporary national socioeconomic and environmental issues with 5-minute prep time.',
+    description: 'Spontaneous oration on contemporary national socioeconomic and environmental issues with 5-minute prep time (Literary Minor Tier).',
     participatingColleges: ['CBIT', 'CESS-IDS', 'CFMS', 'CELS'],
     matchup: 'Four-Way Speech Duel',
     status: 'upcoming',
     resultStatus: 'pending',
   },
 
-  // 8. Upcoming: Badminton – Mixed Doubles
+  // 8. Upcoming: Badminton – Mixed Doubles (Sports Minor)
   {
     id: 'ev-sports-04',
     eventName: 'Badminton – Mixed Doubles',
     category: 'sports',
+    pointTier: 'minor',
+    isMajor: false,
     eventType: 'Team',
     competitionFormat: 'single-elimination',
     date: '2026-09-16',
@@ -513,11 +521,13 @@ export const INITIAL_EVENTS: PalakasanEvent[] = [
     ),
   },
 
-  // 8b. Upcoming: Volleyball – Women (Round Robin)
+  // 8b. Upcoming: Volleyball – Women (Sports Major)
   {
     id: 'ev-sports-06',
     eventName: 'Volleyball – Women Round Robin',
     category: 'sports',
+    pointTier: 'major',
+    isMajor: true,
     eventType: 'Team',
     competitionFormat: 'round-robin',
     tieBreakerRule: 'competition-points',
@@ -539,53 +549,97 @@ export const INITIAL_EVENTS: PalakasanEvent[] = [
     ),
   },
 
-  // 9. Upcoming: Vocal Solo Showdown
+  // 9. Upcoming: Vocal Solo Showdown (Cultural Minor)
   {
     id: 'ev-cultural-02',
     eventName: 'Vocal Solo Showdown',
     category: 'cultural',
+    pointTier: 'minor',
+    isMajor: false,
     eventType: 'Individual',
     date: '2026-09-16',
     startTime: '06:00 PM',
     endTime: '08:00 PM',
     venue: 'MSUN Bandstand',
-    description: 'Solo ballad and OPM vocal competition judged on tonal quality, pitch accuracy, stage presence, and interpretation.',
+    description: 'Solo ballad and OPM vocal competition judged on tonal quality, pitch accuracy, stage presence, and interpretation (Cultural Minor Tier).',
     participatingColleges: ['CBIT', 'CESS-IDS', 'CFMS', 'CELS'],
     matchup: 'Inter-College Vocal Fest',
     status: 'upcoming',
     resultStatus: 'pending',
   },
 
-  // 10. Upcoming: Table Tennis – Men
+  // 9b. Upcoming: Folk Dance Spectacular (Cultural Major)
+  {
+    id: 'ev-cultural-03',
+    eventName: 'Folk Dance Festival & Competition',
+    category: 'cultural',
+    pointTier: 'major',
+    isMajor: true,
+    eventType: 'Group Performance',
+    date: '2026-09-17',
+    startTime: '04:00 PM',
+    endTime: '06:30 PM',
+    venue: 'TSAC',
+    description: 'Grand traditional Philippine folk dance competition showcasing indigenous music, attire, and authentic ethnic choreography (Cultural Major Tier: 50-40-30-20 pts).',
+    participatingColleges: ['CBIT', 'CESS-IDS', 'CFMS', 'CELS'],
+    matchup: 'Heritage Choreography Showcase',
+    status: 'upcoming',
+    resultStatus: 'pending',
+  },
+
+  // 10. Upcoming: Table Tennis – Men (Sports Minor)
   {
     id: 'ev-sports-05',
     eventName: 'Table Tennis – Men\'s Singles',
     category: 'sports',
+    pointTier: 'minor',
+    isMajor: false,
     eventType: 'Individual',
     date: '2026-09-17',
     startTime: '09:00 AM',
     endTime: '11:00 AM',
     venue: 'MSUN Gymnasium',
-    description: 'Fast-paced ping pong round-robin preliminary bouts.',
+    description: 'Fast-paced ping pong round-robin preliminary bouts (Sports Minor Tier).',
     participatingColleges: ['CBIT', 'CELS'],
     matchup: 'CBIT vs CELS',
     status: 'upcoming',
     resultStatus: 'pending',
   },
 
-  // 11. Upcoming: Essay Writing Contest
+  // 11. Upcoming: Essay Writing Contest (Literary Minor)
   {
     id: 'ev-literary-03',
     eventName: 'Essay Writing Contest (English & Filipino)',
     category: 'literary',
+    pointTier: 'minor',
+    isMajor: false,
     eventType: 'Individual',
     date: '2026-09-17',
     startTime: '01:00 PM',
     endTime: '03:00 PM',
     venue: 'MSUN Function Hall',
-    description: 'On-the-spot expository essay writing focusing on sustainable development and academic stewardship.',
+    description: 'On-the-spot expository essay writing focusing on sustainable development and academic stewardship (Literary Minor Tier).',
     participatingColleges: ['CBIT', 'CESS-IDS', 'CFMS', 'CELS'],
     matchup: 'Open Division',
+    status: 'upcoming',
+    resultStatus: 'pending',
+  },
+
+  // 11b. Upcoming: Parliamentary Debate Championship (Literary Major)
+  {
+    id: 'ev-literary-04',
+    eventName: 'Parliamentary Debate Championship',
+    category: 'literary',
+    pointTier: 'major',
+    isMajor: true,
+    eventType: 'Team',
+    date: '2026-09-18',
+    startTime: '09:00 AM',
+    endTime: '12:00 PM',
+    venue: 'MSUN Function Hall',
+    description: 'Asian Parliamentary format championship tournament deliberating governance, ethics, and university leadership (Literary Major Tier: 50-40-30-20 pts).',
+    participatingColleges: ['CBIT', 'CESS-IDS', 'CFMS', 'CELS'],
+    matchup: 'Championship Debate Final',
     status: 'upcoming',
     resultStatus: 'pending',
   },

@@ -992,7 +992,7 @@ export async function revokeEventResult(
 }
 
 // ==========================================
-// ACTIVITY LOGGING
+// ACTIVITY LOGGING & DATA RESET
 // ==========================================
 
 export async function addDatabaseLog(
@@ -1021,4 +1021,239 @@ export async function addDatabaseLog(
       timestamp: Date.now(),
     })
   );
+}
+
+/**
+ * Completely resets the tournament database back to the official default demonstration state.
+ * Restores initial colleges, venues, categories, events, transactions, and scoring rules.
+ */
+export async function resetDatabaseToDefaults(adminUser: string): Promise<void> {
+  try {
+    // 1. Delete all existing pointTransactions
+    const ptSnap = await getDocs(collection(db, 'pointTransactions'));
+    const ptBatch = writeBatch(db);
+    ptSnap.forEach(d => ptBatch.delete(d.ref));
+    await ptBatch.commit();
+
+    // 2. Delete all existing events
+    const evSnap = await getDocs(collection(db, 'events'));
+    const evBatch = writeBatch(db);
+    evSnap.forEach(d => evBatch.delete(d.ref));
+    await evBatch.commit();
+
+    // 3. Delete all existing activity logs
+    const logSnap = await getDocs(collection(db, 'activityLogs'));
+    const logBatch = writeBatch(db);
+    logSnap.forEach(d => logBatch.delete(d.ref));
+    await logBatch.commit();
+
+    // 4. Restore Palakasan 2026 edition
+    const palakasanBatch = writeBatch(db);
+    const pal2026Ref = doc(db, 'palakasans', 'palakasan-2026');
+    palakasanBatch.set(
+      pal2026Ref,
+      cleanForFirestore({
+        id: 'palakasan-2026',
+        year: 2026,
+        theme: 'Subaybay: Paghugpong sa Kalagsik, Pagpatunhay sa Kabilin',
+        name: 'PALAKASAN 2026',
+        startDate: '2026-09-15',
+        endDate: '2026-09-19',
+        status: 'ongoing',
+        scoringRules: {
+          majorPoints: { '1st': 50, '2nd': 40, '3rd': 30, '4th': 20, DQ: 0 },
+          minorPoints: { '1st': 30, '2nd': 20, '3rd': 15, '4th': 10, DQ: 0 },
+          specialPoints: { '1st': 60, '2nd': 45, '3rd': 30, '4th': 20, DQ: 0 },
+        },
+      })
+    );
+
+    // 5. Restore colleges
+    for (const col of INITIAL_COLLEGES) {
+      palakasanBatch.set(doc(db, 'colleges', col.id), cleanForFirestore(col));
+    }
+
+    // 6. Restore categories
+    for (const cat of INITIAL_CATEGORIES) {
+      palakasanBatch.set(doc(db, 'categories', cat.id), cleanForFirestore(cat));
+    }
+
+    // 7. Restore venues
+    for (const v of INITIAL_VENUES) {
+      palakasanBatch.set(doc(db, 'venues', v.id), cleanForFirestore(v));
+    }
+
+    await palakasanBatch.commit();
+
+    // 8. Re-seed events and their certified point transactions
+    const eventBatch = writeBatch(db);
+    for (const ev of INITIAL_EVENTS) {
+      eventBatch.set(
+        doc(db, 'events', ev.id),
+        cleanForFirestore({
+          ...ev,
+          palakasanId: 'palakasan-2026',
+        })
+      );
+
+      // Re-seed transactions for completed events
+      if (ev.status === 'completed' && ev.results) {
+        for (const res of ev.results) {
+          const transId = `pt-${ev.id}-${res.collegeId}`;
+          const isSpecial = ev.category === 'special' || ev.pointTier === 'special';
+          const isMajor = ev.pointTier === 'major' || (ev.pointTier !== 'minor' && (ev.isMajor || ev.category === 'sports'));
+          const eventTypeLabel = isSpecial ? 'Special' : isMajor ? 'Major' : 'Minor';
+
+          const trans: PointTransaction = {
+            id: transId,
+            palakasanId: 'palakasan-2026',
+            collegeId: res.collegeId,
+            eventId: ev.id,
+            eventName: ev.eventName,
+            category: ev.category,
+            eventType: eventTypeLabel,
+            finalRank: res.placement,
+            pointsAwarded: res.points,
+            dateAwarded: ev.date,
+            declaredBy: ev.declaredBy || adminUser,
+            status: 'official',
+          };
+          eventBatch.set(doc(db, 'pointTransactions', transId), cleanForFirestore(trans));
+        }
+      }
+    }
+
+    // 9. Re-seed Historical 2025 Transactions
+    for (const trans of HISTORICAL_2025_TRANSACTIONS) {
+      eventBatch.set(doc(db, 'pointTransactions', trans.id), cleanForFirestore(trans));
+    }
+
+    // 10. Re-seed initial activity log
+    for (const log of INITIAL_ACTIVITY_LOGS) {
+      eventBatch.set(
+        doc(db, 'activityLogs', log.id),
+        cleanForFirestore({ ...log, palakasanId: 'palakasan-2026' })
+      );
+    }
+
+    // Add restoration log
+    const resetLogId = `log-${Date.now()}`;
+    eventBatch.set(
+      doc(db, 'activityLogs', resetLogId),
+      cleanForFirestore({
+        id: resetLogId,
+        palakasanId: 'palakasan-2026',
+        action: 'Restored Default Tournament State',
+        eventTitle: 'System Reset',
+        eventId: '',
+        date: new Date().toISOString().split('T')[0],
+        time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        adminUser,
+        description: `Tournament state successfully restored to official MSUN Palakasan defaults by ${adminUser}.`,
+        timestamp: Date.now(),
+      })
+    );
+
+    await eventBatch.commit();
+    console.log('Database successfully restored to defaults by', adminUser);
+  } catch (err) {
+    console.error('Error resetting database to defaults:', err);
+    throw err;
+  }
+}
+
+/**
+ * Clears all certified point transactions for the current tournament and
+ * sets all completed events back to upcoming with cleared results.
+ * This effectively zeroes the tournament leaderboard so a tournament can start clean.
+ */
+export async function clearTournamentPointHistory(palakasanId: string = 'palakasan-2026', adminUser: string): Promise<void> {
+  try {
+    // 1. Delete all point transactions for this palakasan
+    const ptQ = query(collection(db, 'pointTransactions'), where('palakasanId', '==', palakasanId));
+    const ptSnap = await getDocs(ptQ);
+    const ptBatch = writeBatch(db);
+    ptSnap.forEach(d => ptBatch.delete(d.ref));
+    await ptBatch.commit();
+
+    // 2. Clear results and reset completed/ongoing events to 'upcoming'
+    const evQ = query(collection(db, 'events'), where('palakasanId', '==', palakasanId));
+    const evSnap = await getDocs(evQ);
+    const evBatch = writeBatch(db);
+    evSnap.forEach(d => {
+      const data = d.data() as PalakasanEvent;
+      evBatch.update(
+        d.ref,
+        cleanForFirestore({
+          status: 'upcoming',
+          resultStatus: 'draft',
+          results: null,
+          championCollegeId: null,
+          declaredAt: null,
+          declaredBy: null,
+        })
+      );
+    });
+    await evBatch.commit();
+
+    // 3. Log the action
+    await addDatabaseLog(
+      'Cleared All Points & Results',
+      `All official results and point transactions were cleared by ${adminUser}. Standings reset to 0.`,
+      adminUser,
+      'Point Ledger Reset',
+      '',
+      palakasanId
+    );
+  } catch (err) {
+    console.error('Error clearing point history:', err);
+    throw err;
+  }
+}
+
+/**
+ * Clears all activity log history entries.
+ */
+export async function clearAllActivityLogs(palakasanId: string = 'palakasan-2026', adminUser: string): Promise<void> {
+  try {
+    const q = query(collection(db, 'activityLogs'), where('palakasanId', '==', palakasanId));
+    const snap = await getDocs(q);
+    const batch = writeBatch(db);
+    snap.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+
+    // Add 1 clean entry
+    await addDatabaseLog(
+      'Audit Trail Cleared',
+      `Activity logs were purged by ${adminUser}. Fresh audit logging initiated.`,
+      adminUser,
+      'Audit Trail',
+      '',
+      palakasanId
+    );
+  } catch (err) {
+    console.error('Error clearing activity logs:', err);
+    throw err;
+  }
+}
+
+/**
+ * Deletes or revokes a single point transaction from the ledger.
+ */
+export async function deletePointTransaction(txId: string, adminUser: string): Promise<void> {
+  try {
+    const docRef = doc(db, 'pointTransactions', txId);
+    await deleteDoc(docRef);
+
+    await addDatabaseLog(
+      'Deleted Point Transaction',
+      `Transaction ${txId} was removed from the official ledger by ${adminUser}.`,
+      adminUser,
+      'Ledger Adjustment',
+      txId
+    );
+  } catch (err) {
+    console.error('Error deleting point transaction:', err);
+    throw err;
+  }
 }

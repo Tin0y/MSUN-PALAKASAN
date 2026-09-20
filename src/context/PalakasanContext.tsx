@@ -45,6 +45,10 @@ import {
   certifyEventResult,
   revokeEventResult,
   addDatabaseLog,
+  resetDatabaseToDefaults,
+  clearTournamentPointHistory,
+  clearAllActivityLogs as clearAllActivityLogsFirestore,
+  deletePointTransaction,
 } from '../services/firestoreService';
 import {
   calculateRoundRobinStandings,
@@ -197,9 +201,15 @@ interface PalakasanContextType {
   deleteVenue: (id: string) => Promise<void>;
   verifyVenueConflict: (venue: string, date: string, startTime: string, endTime: string, excludeEventId?: string) => { hasConflict: boolean; conflictingEvent?: PalakasanEvent };
 
-  // Activity Logs
+  // Activity Logs & Audit
   addActivityLog: (log: Omit<ActivityLogItem, 'id' | 'timestamp'>) => void;
   clearActivityLogs: () => void;
+  clearActivityAuditLogs: () => Promise<void>;
+
+  // Data Reset & Tournament Lifecycle Controls
+  resetToDefaultData: () => Promise<void>;
+  clearPointHistory: () => Promise<void>;
+  deletePointTransactionById: (txId: string) => Promise<void>;
 
   // Selected state for modals
   selectedCollegeId: CollegeId | null;
@@ -1441,7 +1451,63 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const clearActivityLogs = () => {
-    // Local no-op for safety
+    // Local no-op for backward compatibility
+  };
+
+  const resetToDefaultData = async (): Promise<void> => {
+    try {
+      await resetDatabaseToDefaults(adminUserDisplay);
+      // Immediately reflect fallback initial data in local state
+      setColleges(FALLBACK_COLLEGES);
+      setCategories(FALLBACK_CATEGORIES);
+      setVenues(INITIAL_VENUES);
+      setEvents(FALLBACK_EVENTS);
+    } catch (err) {
+      console.error('Failed to reset tournament data to defaults:', err);
+      // Fallback local reset even if Firestore network fails
+      setColleges(FALLBACK_COLLEGES);
+      setCategories(FALLBACK_CATEGORIES);
+      setVenues(INITIAL_VENUES);
+      setEvents(FALLBACK_EVENTS);
+    }
+  };
+
+  const clearPointHistory = async (): Promise<void> => {
+    try {
+      await clearTournamentPointHistory(viewedPalakasanId, adminUserDisplay);
+      setPointTransactions(prev => prev.filter(pt => pt.palakasanId !== viewedPalakasanId));
+      setEvents(prev =>
+        prev.map(ev => ({
+          ...ev,
+          status: 'upcoming',
+          resultStatus: 'draft',
+          results: undefined,
+          championCollegeId: undefined,
+          declaredAt: undefined,
+          declaredBy: undefined,
+        }))
+      );
+    } catch (err) {
+      console.error('Failed to clear point history:', err);
+    }
+  };
+
+  const clearActivityAuditLogs = async (): Promise<void> => {
+    try {
+      await clearAllActivityLogsFirestore(viewedPalakasanId, adminUserDisplay);
+      setActivityLogs([]);
+    } catch (err) {
+      console.error('Failed to clear activity audit logs:', err);
+    }
+  };
+
+  const deletePointTransactionById = async (txId: string): Promise<void> => {
+    try {
+      await deletePointTransaction(txId, adminUserDisplay);
+      setPointTransactions(prev => prev.filter(pt => pt.id !== txId));
+    } catch (err) {
+      console.error('Failed to delete point transaction:', err);
+    }
   };
 
   return (
@@ -1501,6 +1567,10 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         verifyVenueConflict,
         addActivityLog,
         clearActivityLogs,
+        clearActivityAuditLogs,
+        resetToDefaultData,
+        clearPointHistory,
+        deletePointTransactionById,
         selectedCollegeId,
         setSelectedCollegeId,
         selectedEventId,

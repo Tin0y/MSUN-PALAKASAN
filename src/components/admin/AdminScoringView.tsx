@@ -46,6 +46,7 @@ export const AdminScoringView: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [filterTier, setFilterTier] = useState<'all' | 'special' | 'major' | 'minor'>('all');
+  const [filterCategory, setFilterCategory] = useState<'all' | 'sports' | 'cultural' | 'literary' | 'special'>('all');
 
   const handleSave = async () => {
     if (!currentPalakasan) return;
@@ -98,8 +99,9 @@ export const AdminScoringView: React.FC = () => {
     const tier =
       ev.pointTier ||
       (ev.category === 'special' ? 'special' : ev.isMajor || ev.category === 'sports' ? 'major' : 'minor');
-    if (filterTier === 'all') return true;
-    return tier === filterTier;
+    const matchesTier = filterTier === 'all' || tier === filterTier;
+    const matchesCategory = filterCategory === 'all' || ev.category === filterCategory;
+    return matchesTier && matchesCategory;
   });
 
   return (
@@ -112,10 +114,10 @@ export const AdminScoringView: React.FC = () => {
             <span>Three-Tier Championship Architecture</span>
           </div>
           <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
-            Scoring Rules & Special Events Points System
+            Scoring Rules & Event Point Tiers
           </h2>
           <p className="text-xs text-slate-500 max-w-xl mt-1">
-            Configure standardized point matrices for Special Events, Major Sports Tournaments, and Minor Cultural/Literary Events. All placements certified under these rules directly compute university standings.
+            Configure standardized point matrices for Special Events, Major Tournaments, and Minor Competitions. Both Cultural and Literary events can be flexibly designated as Major or Minor points based on festival committee guidelines.
           </p>
         </div>
 
@@ -390,59 +392,132 @@ export const AdminScoringView: React.FC = () => {
 
       {/* Events Inspection & Tier Assignment Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        {/* Friendly Cultural & Literary Note */}
+        <div className="mx-4 sm:mx-5 mt-4 p-3 rounded-xl bg-blue-50/70 border border-blue-200 text-xs text-blue-900 flex items-start gap-2">
+          <Sparkles className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+          <span>
+            <strong>Flexible Cultural & Literary Points:</strong> Cultural events (e.g. Hiphop Dance, Folk Dance Festival) and Literary competitions (e.g. Parliamentary Debate, Balak) can be assigned to either <strong>Major Tier ({majorPoints['1st']} pts)</strong> or <strong>Minor Tier ({minorPoints['1st']} pts)</strong> below.
+          </span>
+        </div>
+
+        <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
             <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-              <span>Event Point Tier Mapping ({events.length} Events)</span>
+              <span>Event Point Tier Mapping ({filteredEvents.length} of {events.length} Events)</span>
             </h3>
             <p className="text-xs text-slate-500">
               Review and designate point tiers for each event. Changes take effect on next certification.
             </p>
           </div>
 
-          {/* Filter Tabs */}
-          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl text-xs font-semibold">
-            <button
-              onClick={() => setFilterTier('all')}
-              className={`px-3 py-1 rounded-lg transition-colors ${
-                filterTier === 'all'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              All ({events.length})
-            </button>
-            <button
-              onClick={() => setFilterTier('special')}
-              className={`px-3 py-1 rounded-lg transition-colors flex items-center gap-1 ${
-                filterTier === 'special'
-                  ? 'bg-purple-600 text-white shadow-xs'
-                  : 'text-purple-700 hover:bg-purple-100'
-              }`}
-            >
-              <Star className="w-3 h-3 fill-current" />
-              Special Events
-            </button>
-            <button
-              onClick={() => setFilterTier('major')}
-              className={`px-3 py-1 rounded-lg transition-colors ${
-                filterTier === 'major'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-blue-700 hover:bg-blue-100'
-              }`}
-            >
-              Major
-            </button>
-            <button
-              onClick={() => setFilterTier('minor')}
-              className={`px-3 py-1 rounded-lg transition-colors ${
-                filterTier === 'minor'
-                  ? 'bg-slate-700 text-white shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              Minor
-            </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Category Filter Tabs */}
+            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setFilterCategory('all')}
+                className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                  filterCategory === 'all'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterCategory('cultural')}
+                className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                  filterCategory === 'cultural'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-emerald-700 hover:bg-emerald-50'
+                }`}
+              >
+                Cultural
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterCategory('literary')}
+                className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                  filterCategory === 'literary'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-indigo-700 hover:bg-indigo-50'
+                }`}
+              >
+                Literary
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterCategory('sports')}
+                className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                  filterCategory === 'sports'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-blue-700 hover:bg-blue-50'
+                }`}
+              >
+                Sports
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterCategory('special')}
+                className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                  filterCategory === 'special'
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'text-purple-700 hover:bg-purple-50'
+                }`}
+              >
+                Special
+              </button>
+            </div>
+
+            {/* Tier Filter Tabs */}
+            <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setFilterTier('all')}
+                className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                  filterTier === 'all'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                All Tiers
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterTier('special')}
+                className={`px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer ${
+                  filterTier === 'special'
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'text-purple-700 hover:bg-purple-100'
+                }`}
+              >
+                <Star className="w-3 h-3 fill-current" />
+                Special
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterTier('major')}
+                className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                  filterTier === 'major'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-blue-700 hover:bg-blue-100'
+                }`}
+              >
+                Major
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterTier('minor')}
+                className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                  filterTier === 'minor'
+                    ? 'bg-slate-700 text-white shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                Minor
+              </button>
+            </div>
           </div>
         </div>
 
