@@ -1,0 +1,75 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // MSUN PALAKASAN Tournament Data Security Rules
+    // Public read for live university spectator portal
+    // Write access enabled for tournament operations, results, and initial database setup
+    match /palakasans/{id} {
+      allow read, write: if true;
+    }
+
+    match /colleges/{id} {
+      allow read, write: if true;
+    }
+
+    match /categories/{id} {
+      allow read, write: if true;
+    }
+
+    match /venues/{id} {
+      allow read, write: if true;
+    }
+
+    match /scoringRules/{id} {
+      allow read, write: if true;
+    }
+
+    match /competitionFormats/{id} {
+      allow read, write: if true;
+    }
+
+    match /events/{id} {
+      allow read, write: if true;
+    }
+
+    match /eventParticipants/{id} {
+      allow read, write: if true;
+    }
+
+    match /matches/{id} {
+      allow read, write: if true;
+    }
+
+    match /matchResults/{id} {
+      allow read, write: if true;
+    }
+
+    match /brackets/{id} {
+      allow read, write: if true;
+    }
+
+    match /eventRankings/{id} {
+      allow read, write: if true;
+    }
+
+    match /pointTransactions/{id} {
+      allow read, write: if true;
+    }
+
+    match /standings/{id} {
+      allow read, write: if true;
+    }
+
+    match /activityLogs/{id} {
+      allow read, write: if true;
+    }
+
+    match /admins/{id} {
+      allow read, write: if true;
+    }
+
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

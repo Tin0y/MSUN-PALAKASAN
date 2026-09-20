@@ -1,0 +1,208 @@
+{
+  "entities": {
+    "palakasan": {
+      "collection": "palakasans",
+      "fields": {
+        "id": { "type": "string", "description": "Unique identifier for the PALAKASAN edition (e.g. palakasan-2026)" },
+        "name": { "type": "string", "description": "Display name of the edition" },
+        "year": { "type": "number", "description": "Year of the PALAKASAN" },
+        "description": { "type": "string", "description": "Description and context" },
+        "startDate": { "type": "string", "description": "Start date YYYY-MM-DD" },
+        "endDate": { "type": "string", "description": "End date YYYY-MM-DD" },
+        "status": { "type": "string", "description": "draft | upcoming | ongoing | completed | archived" },
+        "isCurrent": { "type": "boolean", "description": "Whether this edition is active/current" },
+        "theme": {
+          "type": "map",
+          "description": "Theme configuration (title, tagline, logo, banner, primaryColor, secondaryColor, accentColor, description)"
+        },
+        "participatingColleges": { "type": "list", "description": "List of college IDs" },
+        "eventCategories": { "type": "list", "description": "List of category IDs" },
+        "scoringRules": { "type": "map", "description": "Major and minor point configuration" },
+        "competitionRules": { "type": "map", "description": "Competition formats and tie-breaking options" },
+        "createdAt": { "type": "string", "description": "Creation ISO date string" },
+        "updatedAt": { "type": "string", "description": "Last update ISO date string" }
+      }
+    },
+    "college": {
+      "collection": "colleges",
+      "fields": {
+        "id": { "type": "string", "description": "College code/acronym (e.g. CBIT)" },
+        "name": { "type": "string", "description": "Full formal name" },
+        "acronym": { "type": "string", "description": "Acronym" },
+        "shortName": { "type": "string", "description": "Short collegiate name" },
+        "tagline": { "type": "string", "description": "Motto or slogan" },
+        "mascot": { "type": "string", "description": "Official college mascot" },
+        "description": { "type": "string", "description": "About the college" },
+        "logo": { "type": "string", "description": "URL or emoji identifier" },
+        "status": { "type": "string", "description": "active | inactive" },
+        "color": { "type": "map", "description": "Color configuration (primary, secondary, accent, bgBadge, textBadge, border, ring)" },
+        "createdAt": { "type": "string", "description": "Creation date" }
+      }
+    },
+    "category": {
+      "collection": "categories",
+      "fields": {
+        "id": { "type": "string", "description": "Category ID (e.g. sports, cultural, literary, special)" },
+        "name": { "type": "string", "description": "Category display name" },
+        "icon": { "type": "string", "description": "Icon emoji or symbol" },
+        "description": { "type": "string", "description": "Detailed description" },
+        "displayOrder": { "type": "number", "description": "Display order rank" },
+        "status": { "type": "string", "description": "active | inactive" },
+        "examples": { "type": "list", "description": "Example sports or events" }
+      }
+    },
+    "venue": {
+      "collection": "venues",
+      "fields": {
+        "id": { "type": "string", "description": "Venue identifier" },
+        "name": { "type": "string", "description": "Venue title" },
+        "location": { "type": "string", "description": "Physical campus location" },
+        "capacity": { "type": "number", "description": "Spectator capacity" },
+        "description": { "type": "string", "description": "Venue description" },
+        "status": { "type": "string", "description": "active | maintenance | disabled" },
+        "createdAt": { "type": "string", "description": "Creation date" }
+      }
+    },
+    "scoringRule": {
+      "collection": "scoringRules",
+      "fields": {
+        "id": { "type": "string", "description": "Rule identifier" },
+        "palakasanId": { "type": "string", "description": "Associated PALAKASAN ID" },
+        "majorPoints": { "type": "map", "description": "Placements 1st, 2nd, 3rd, 4th, DQ" },
+        "minorPoints": { "type": "map", "description": "Placements 1st, 2nd, 3rd, 4th, DQ" },
+        "specialPoints": { "type": "map", "description": "Optional special placements" },
+        "isDefault": { "type": "boolean", "description": "Whether default for edition" }
+      }
+    },
+    "competitionFormat": {
+      "collection": "competitionFormats",
+      "fields": {
+        "id": { "type": "string", "description": "Format ID (double-elimination, round-robin, single-elimination, etc.)" },
+        "name": { "type": "string", "description": "Format name" },
+        "description": { "type": "string", "description": "Format explanation" },
+        "defaultParticipants": { "type": "number", "description": "Typical team count" },
+        "hasResetGame": { "type": "boolean", "description": "Whether championship reset is supported" },
+        "tieBreakerRules": { "type": "list", "description": "Ordered tie breaker rules" },
+        "requiresAllMatches": { "type": "boolean", "description": "Whether all matches must finish before certification" }
+      }
+    },
+    "event": {
+      "collection": "events",
+      "fields": {
+        "id": { "type": "string", "description": "Unique event identifier" },
+        "palakasanId": { "type": "string", "description": "Referenced PALAKASAN edition" },
+        "eventName": { "type": "string", "description": "Title of the tournament event" },
+        "category": { "type": "string", "description": "Referenced Category ID" },
+        "isMajor": { "type": "boolean", "description": "True for Major, False for Minor" },
+        "hasCustomScoring": { "type": "boolean", "description": "Whether custom scoring applies" },
+        "customPoints": { "type": "map", "description": "Event-specific placement points if custom" },
+        "eventType": { "type": "string", "description": "Team | Individual | Head-to-Head / Match | Group Performance" },
+        "competitionFormat": { "type": "string", "description": "double-elimination | round-robin | single-elimination | individual | head-to-head | custom" },
+        "tieBreakerRule": { "type": "string", "description": "competition-points | head-to-head | score-difference | total-score" },
+        "allowDraws": { "type": "boolean", "description": "Allow draws in round-robin" },
+        "date": { "type": "string", "description": "Date YYYY-MM-DD" },
+        "startTime": { "type": "string", "description": "Start time e.g. 08:00 AM" },
+        "endTime": { "type": "string", "description": "End time e.g. 11:30 AM" },
+        "venue": { "type": "string", "description": "Venue name" },
+        "description": { "type": "string", "description": "Event description" },
+        "participatingColleges": { "type": "list", "description": "Array of college acronyms" },
+        "matchup": { "type": "string", "description": "Matchup text summary" },
+        "status": { "type": "string", "description": "upcoming | ongoing | completed | cancelled | postponed" },
+        "resultStatus": { "type": "string", "description": "pending | draft | official" },
+        "championCollegeId": { "type": "string", "description": "Winner college acronym" },
+        "championName": { "type": "string", "description": "Winning individual athlete name" },
+        "results": { "type": "list", "description": "Array of EventResultItems" },
+        "declaredAt": { "type": "string", "description": "Official result declaration timestamp" },
+        "declaredBy": { "type": "string", "description": "Admin who certified result" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "description": "Update timestamp" }
+      }
+    },
+    "match": {
+      "collection": "matches",
+      "fields": {
+        "id": { "type": "string", "description": "Match unique ID" },
+        "palakasanId": { "type": "string", "description": "Associated PALAKASAN ID" },
+        "eventId": { "type": "string", "description": "Associated Event ID" },
+        "gameNumber": { "type": "number", "description": "Numbered match within bracket" },
+        "roundName": { "type": "string", "description": "e.g. Winners Round 1, Championship Final" },
+        "stage": { "type": "string", "description": "winners | losers | championship | reset | round-robin | semifinal | final | consolation" },
+        "collegeA": { "type": "string", "description": "Participant A college acronym" },
+        "collegeB": { "type": "string", "description": "Participant B college acronym" },
+        "sourceDescriptionA": { "type": "string", "description": "Seed or feeder description A" },
+        "sourceDescriptionB": { "type": "string", "description": "Seed or feeder description B" },
+        "scoreA": { "type": "number", "description": "Recorded score for A" },
+        "scoreB": { "type": "number", "description": "Recorded score for B" },
+        "winnerCollegeId": { "type": "string", "description": "Winning college acronym" },
+        "loserCollegeId": { "type": "string", "description": "Losing college acronym" },
+        "isDraw": { "type": "boolean", "description": "Whether match ended in draw" },
+        "status": { "type": "string", "description": "scheduled | ongoing | completed | cancelled | postponed" },
+        "date": { "type": "string", "description": "Scheduled date" },
+        "startTime": { "type": "string", "description": "Scheduled start time" },
+        "endTime": { "type": "string", "description": "Scheduled end time" },
+        "venue": { "type": "string", "description": "Venue name" },
+        "isUnlocked": { "type": "boolean", "description": "Whether teams are resolved and match is ready" },
+        "isResetGame": { "type": "boolean", "description": "Championship reset game flag" },
+        "notes": { "type": "string", "description": "Game notes" },
+        "completedAt": { "type": "string", "description": "Completion timestamp" }
+      }
+    },
+    "pointTransaction": {
+      "collection": "pointTransactions",
+      "fields": {
+        "id": { "type": "string", "description": "Transaction identifier" },
+        "palakasanId": { "type": "string", "description": "Associated PALAKASAN ID" },
+        "collegeId": { "type": "string", "description": "Awarded college acronym" },
+        "eventId": { "type": "string", "description": "Originating event ID" },
+        "eventName": { "type": "string", "description": "Originating event name" },
+        "category": { "type": "string", "description": "Category ID" },
+        "eventType": { "type": "string", "description": "Major or Minor Event" },
+        "finalRank": { "type": "string", "description": "1st | 2nd | 3rd | 4th | DQ" },
+        "pointsAwarded": { "type": "number", "description": "Points value" },
+        "dateAwarded": { "type": "string", "description": "ISO timestamp of declaration" },
+        "declaredBy": { "type": "string", "description": "Admin authorizer" },
+        "status": { "type": "string", "description": "official | revoked" }
+      }
+    },
+    "standing": {
+      "collection": "standings",
+      "fields": {
+        "id": { "type": "string", "description": "Composite key: palakasanId_collegeId" },
+        "palakasanId": { "type": "string", "description": "Associated PALAKASAN ID" },
+        "collegeId": { "type": "string", "description": "College acronym" },
+        "sports": { "type": "number", "description": "Sum of sports points" },
+        "cultural": { "type": "number", "description": "Sum of cultural points" },
+        "literary": { "type": "number", "description": "Sum of literary points" },
+        "special": { "type": "number", "description": "Sum of special events points" },
+        "overallPoints": { "type": "number", "description": "Calculated total points" },
+        "rank": { "type": "number", "description": "Overall standing position" },
+        "lastUpdated": { "type": "string", "description": "Timestamp of calculation" }
+      }
+    },
+    "activityLog": {
+      "collection": "activityLogs",
+      "fields": {
+        "id": { "type": "string", "description": "Log identifier" },
+        "palakasanId": { "type": "string", "description": "Associated PALAKASAN ID" },
+        "action": { "type": "string", "description": "Summary action verb" },
+        "eventTitle": { "type": "string", "description": "Related event title" },
+        "eventId": { "type": "string", "description": "Related event ID" },
+        "date": { "type": "string", "description": "Date string" },
+        "time": { "type": "string", "description": "Time string" },
+        "adminUser": { "type": "string", "description": "Admin username or email" },
+        "description": { "type": "string", "description": "Detailed log description" },
+        "timestamp": { "type": "number", "description": "Epoch timestamp" }
+      }
+    },
+    "admin": {
+      "collection": "admins",
+      "fields": {
+        "id": { "type": "string", "description": "Admin email or UID" },
+        "email": { "type": "string", "description": "Admin email address" },
+        "role": { "type": "string", "description": "superadmin | official | observer" },
+        "displayName": { "type": "string", "description": "Full name" },
+        "createdAt": { "type": "string", "description": "Creation date" }
+      }
+    }
+  }
+}

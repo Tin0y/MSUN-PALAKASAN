@@ -1,0 +1,6 @@
+{
+  "name": "MSUN PALAKASAN",
+  "description": "Official live tournament tracking website for MSU at Naawan PALAKASAN. Monitor real-time overall standings, category leaders, schedules, happening now events, and transparent scoring.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
