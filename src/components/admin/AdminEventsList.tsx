@@ -23,6 +23,7 @@ import { usePalakasan } from '../../context/PalakasanContext';
 import { CategoryId, EventStatus, PalakasanEvent } from '../../types';
 import { CATEGORIES } from '../../data/initialData';
 import { getCategoryMeta, getCollegeBadgeStyle } from '../../utils/collegeTheme';
+import { DeleteEventModal } from './DeleteEventModal';
 
 interface AdminEventsListProps {
   onOpenCreateEvent: () => void;
@@ -45,6 +46,7 @@ export const AdminEventsList: React.FC<AdminEventsListProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortBy, setSortBy] = useState<'date_asc' | 'date_desc' | 'name'>('date_asc');
+  const [eventToDelete, setEventToDelete] = useState<PalakasanEvent | null>(null);
 
   // Filter logic
   const filteredEvents = events.filter(event => {
@@ -79,9 +81,7 @@ export const AdminEventsList: React.FC<AdminEventsListProps> = ({
 
   const handleDelete = (event: PalakasanEvent, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (window.confirm(`Are you sure you want to delete "${event.eventName}"?`)) {
-      deleteEvent(event.id);
-    }
+    setEventToDelete(event);
   };
 
   return (
@@ -281,7 +281,7 @@ export const AdminEventsList: React.FC<AdminEventsListProps> = ({
                         return (
                           <span
                             key={colId}
-                            className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${badge.bg} ${badge.text}`}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${badge.badge}`}
                           >
                             {colId}
                           </span>
@@ -292,7 +292,7 @@ export const AdminEventsList: React.FC<AdminEventsListProps> = ({
 
                   {/* Right: Quick Action Controls */}
                   <div
-                    className="flex flex-wrap items-center gap-2 shrink-0 md:self-center"
+                    className="flex flex-wrap items-center gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 w-full md:w-auto justify-start sm:justify-end"
                     onClick={e => e.stopPropagation()}
                   >
                     {/* Enter Result / Declare Winner Button */}
@@ -360,6 +360,12 @@ export const AdminEventsList: React.FC<AdminEventsListProps> = ({
           </div>
         )}
       </div>
+
+      <DeleteEventModal
+        event={eventToDelete}
+        isOpen={!!eventToDelete}
+        onClose={() => setEventToDelete(null)}
+      />
     </div>
   );
 };

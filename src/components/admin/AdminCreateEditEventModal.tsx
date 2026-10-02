@@ -15,10 +15,10 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
   onClose,
   eventToEdit,
 }) => {
-  const { addEvent, updateEvent } = usePalakasan();
+  const { addEvent, updateEvent, currentAccount } = usePalakasan();
 
   const [eventName, setEventName] = useState('');
-  const [category, setCategory] = useState<CategoryId>('sports');
+  const [category, setCategory] = useState<CategoryId>(() => currentAccount?.category || 'sports');
   const [eventType, setEventType] = useState<EventType>('Team');
   const [pointTier, setPointTier] = useState<PointTier>('major');
   const [description, setDescription] = useState('');
@@ -70,7 +70,7 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
     } else {
       // Default reset for new event
       setEventName('');
-      setCategory('sports');
+      setCategory(currentAccount?.category || 'sports');
       setEventType('Team');
       setPointTier('major');
       setDescription('');

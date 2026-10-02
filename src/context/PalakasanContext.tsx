@@ -18,7 +18,14 @@ import {
   PointTransaction,
   ResultStatus,
   Venue,
+  CommitteeAccount,
+  RankingsVisibilityConfig,
 } from '../types';
+import {
+  COMMITTEE_ACCOUNTS,
+  findCommitteeAccountByPasscode,
+  getCommitteeAccountById,
+} from '../data/committeeAccounts';
 import {
   DEFAULT_PALAKASAN_2026,
   DEFAULT_PALAKASAN_2025,
@@ -34,6 +41,8 @@ import {
   createPalakasanEdition,
   updatePalakasanEdition,
   setActivePalakasan,
+  deletePalakasanEdition as deletePalakasanDoc,
+  wipeAllTournamentsData,
   saveCollege,
   updateCollegeStatus,
   saveCategory,
@@ -41,6 +50,7 @@ import {
   deleteVenue as removeVenueDoc,
   checkVenueConflict,
   saveEvent,
+  saveEventsBatch,
   removeEvent,
   certifyEventResult,
   revokeEventResult,
@@ -49,6 +59,7 @@ import {
   clearTournamentPointHistory,
   clearAllActivityLogs as clearAllActivityLogsFirestore,
   deletePointTransaction,
+  recordGrievancePointDeduction,
 } from '../services/firestoreService';
 import {
   calculateRoundRobinStandings,
@@ -96,9 +107,14 @@ interface PalakasanContextType {
   allPalakasans: PalakasanEdition[];
   viewedPalakasanId: string;
   setViewedPalakasanId: (id: string) => void;
-  createPalakasan: (edition: PalakasanEdition) => Promise<void>;
+  createPalakasan: (
+    edition: PalakasanEdition,
+    initialEvents?: Omit<PalakasanEvent, 'id' | 'palakasanId'>[]
+  ) => Promise<void>;
   updatePalakasan: (id: string, updates: Partial<PalakasanEdition>) => Promise<void>;
   switchActivePalakasan: (id: string) => Promise<void>;
+  deletePalakasan: (id: string) => Promise<void>;
+  wipeAllPalakasanData: () => Promise<void>;
 
   // Core collections
   events: PalakasanEvent[];
@@ -211,6 +227,18 @@ interface PalakasanContextType {
   clearPointHistory: () => Promise<void>;
   deletePointTransactionById: (txId: string) => Promise<void>;
 
+  // Grievance / Disciplinary Point Deductions
+  applyGrievanceDeduction: (params: {
+    collegeId: CollegeId;
+    pointsToDeduct: number;
+    reason: string;
+    scope: 'overall' | CategoryId;
+    eventId?: string;
+    eventName?: string;
+    resolutionId?: string;
+    adminUser?: string;
+  }) => Promise<PointTransaction>;
+
   // Selected state for modals
   selectedCollegeId: CollegeId | null;
   setSelectedCollegeId: (id: CollegeId | null) => void;
@@ -220,6 +248,8 @@ interface PalakasanContextType {
   // Auth & Admin state
   isAdminLoggedIn: boolean;
   currentUser: User | null;
+  currentAccount: CommitteeAccount | null;
+  committeeAccounts: CommitteeAccount[];
   loginAdmin: (passcode: string) => boolean;
   loginWithGoogle: () => Promise<boolean>;
   logoutAdmin: () => Promise<void>;
@@ -228,27 +258,48 @@ interface PalakasanContextType {
   // Simulation mode
   simulatedTimeMode: boolean;
   setSimulatedTimeMode: (enabled: boolean) => void;
+
+  // Final Day Thrill / Rankings Visibility Controls
+  rankingsVisibility: RankingsVisibilityConfig;
+  updateRankingsVisibility: (updates: Partial<RankingsVisibilityConfig>) => Promise<void>;
+  isRankingHidden: (scope: 'overall' | CategoryId | 'events') => boolean;
+  adminSpectatorPreview: boolean;
+  setAdminSpectatorPreview: (preview: boolean) => void;
 }
 
 const PalakasanContext = createContext<PalakasanContextType | undefined>(undefined);
 
 export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Palakasan editions
-  const [allPalakasans, setAllPalakasans] = useState<PalakasanEdition[]>([DEFAULT_PALAKASAN_2026, DEFAULT_PALAKASAN_2025]);
-  const [viewedPalakasanId, setViewedPalakasanId] = useState<string>('palakasan-2026');
+  const [allPalakasans, setAllPalakasans] = useState<PalakasanEdition[]>([]);
+  const [viewedPalakasanId, setViewedPalakasanId] = useState<string>('');
 
   // Core entities from Firestore
   const [colleges, setColleges] = useState<College[]>(FALLBACK_COLLEGES);
   const [categories, setCategories] = useState<Category[]>(FALLBACK_CATEGORIES);
   const [venues, setVenues] = useState<Venue[]>(INITIAL_VENUES);
-  const [events, setEvents] = useState<PalakasanEvent[]>(FALLBACK_EVENTS);
+  const [events, setEvents] = useState<PalakasanEvent[]>([]);
   const [pointTransactions, setPointTransactions] = useState<PointTransaction[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLogItem[]>([]);
 
   // Auth State
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentAccount, setCurrentAccount] = useState<CommitteeAccount | null>(() => {
+    const savedAccountId = localStorage.getItem('msun_palakasan_account_id');
+    if (savedAccountId) {
+      const found = getCommitteeAccountById(savedAccountId);
+      if (found) return found;
+    }
+    if (localStorage.getItem('msun_palakasan_admin_session') === 'true') {
+      return COMMITTEE_ACCOUNTS[0];
+    }
+    return null;
+  });
   const [isPasscodeAdmin, setIsPasscodeAdmin] = useState<boolean>(() => {
-    return localStorage.getItem('msun_palakasan_admin_session') === 'true';
+    return (
+      localStorage.getItem('msun_palakasan_admin_session') === 'true' ||
+      !!localStorage.getItem('msun_palakasan_account_id')
+    );
   });
 
   // Modal inspection states
@@ -274,13 +325,14 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Subscribe to Palakasan Editions
   useEffect(() => {
     const unsub = subscribeToPalakasans(editions => {
+      setAllPalakasans(editions);
       if (editions.length > 0) {
-        setAllPalakasans(editions);
-        // If current viewed Palakasan is not yet set or not in editions, select active
-        const active = editions.find(e => e.isCurrent);
-        if (active && !editions.some(e => e.id === viewedPalakasanId)) {
+        const active = editions.find(e => e.isCurrent) || editions[0];
+        if (!viewedPalakasanId || !editions.some(e => e.id === viewedPalakasanId)) {
           setViewedPalakasanId(active.id);
         }
+      } else {
+        setViewedPalakasanId('');
       }
     });
     return () => unsub();
@@ -312,6 +364,10 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Subscribe to Events for viewed Palakasan
   useEffect(() => {
+    if (!viewedPalakasanId) {
+      setEvents([]);
+      return;
+    }
     const unsub = subscribeToEvents(viewedPalakasanId, list => {
       setEvents(list);
     });
@@ -320,6 +376,10 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Subscribe to Point Transactions for viewed Palakasan
   useEffect(() => {
+    if (!viewedPalakasanId) {
+      setPointTransactions([]);
+      return;
+    }
     const unsub = subscribeToPointTransactions(viewedPalakasanId, list => {
       setPointTransactions(list);
     });
@@ -336,22 +396,47 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Active / Current Palakasan
   const currentPalakasan = useMemo(() => {
-    const found = allPalakasans.find(e => e.id === viewedPalakasanId) || allPalakasans.find(e => e.isCurrent);
-    return found || DEFAULT_PALAKASAN_2026;
+    if (allPalakasans.length === 0) return null;
+    const found = allPalakasans.find(e => e.id === viewedPalakasanId) || allPalakasans.find(e => e.isCurrent) || allPalakasans[0];
+    return found || null;
   }, [allPalakasans, viewedPalakasanId]);
 
   // Auth computed status
-  const isAdminLoggedIn = !!currentUser || isPasscodeAdmin;
-  const adminUserDisplay = currentUser?.displayName || currentUser?.email || (isPasscodeAdmin ? 'MSUN Tournament Committee' : 'Official Guest');
+  const isAdminLoggedIn = !!currentUser || !!currentAccount || isPasscodeAdmin;
+  const adminUserDisplay = currentAccount
+    ? `${currentAccount.name} (${currentAccount.title})`
+    : currentUser?.displayName || currentUser?.email || (isPasscodeAdmin ? 'MSUN Tournament Committee' : 'Official Guest');
 
   const loginAdmin = (passcode: string): boolean => {
-    const cleaned = passcode.trim().toLowerCase();
-    if (cleaned === 'msun2026' || cleaned === 'admin') {
+    const cleaned = passcode.trim();
+    // Match against official committee accounts
+    const account = findCommitteeAccountByPasscode(cleaned);
+    if (account) {
+      setCurrentAccount(account);
       setIsPasscodeAdmin(true);
       localStorage.setItem('msun_palakasan_admin_session', 'true');
+      localStorage.setItem('msun_palakasan_account_id', account.id);
+      addDatabaseLog(
+        'Committee Sign In',
+        `${account.name} (${account.title}) authenticated and logged into the tournament management console.`,
+        `${account.name} (${account.title})`,
+        undefined,
+        undefined,
+        viewedPalakasanId
+      );
+      return true;
+    }
+
+    // Graceful backward-compatible fallback for admin
+    if (cleaned.toLowerCase() === 'admin' || cleaned.toLowerCase() === 'msun2026') {
+      const defaultAdmin = COMMITTEE_ACCOUNTS[0];
+      setCurrentAccount(defaultAdmin);
+      setIsPasscodeAdmin(true);
+      localStorage.setItem('msun_palakasan_admin_session', 'true');
+      localStorage.setItem('msun_palakasan_account_id', defaultAdmin.id);
       addDatabaseLog(
         'Administrator Sign In',
-        'Authorized administrator logged into PALAKASAN committee portal using passkey credentials.',
+        'Authorized administrator logged into PALAKASAN committee portal.',
         'MSUN Sports & Cultural Affairs Committee',
         undefined,
         undefined,
@@ -359,6 +444,7 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       );
       return true;
     }
+
     return false;
   };
 
@@ -386,16 +472,109 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const logoutAdmin = async () => {
+    const userLabel = adminUserDisplay;
     try {
       await signOut(auth);
     } catch (e) {
       console.warn('Firebase signOut error:', e);
     }
+    setCurrentAccount(null);
     setIsPasscodeAdmin(false);
     localStorage.removeItem('msun_palakasan_admin_session');
+    localStorage.removeItem('msun_palakasan_account_id');
     addDatabaseLog(
-      'Administrator Sign Out',
-      'Administrator ended session safely.',
+      'Committee Sign Out',
+      `${userLabel} ended session safely.`,
+      userLabel,
+      undefined,
+      undefined,
+      viewedPalakasanId
+    );
+  };
+
+  // -----------------------------------------------------------------
+  // FINAL DAY THRILL / RANKINGS VISIBILITY CONTROLS
+  // Hides live rankings/standings from public spectators for suspense
+  // -----------------------------------------------------------------
+
+  const DEFAULT_RANKINGS_VISIBILITY: RankingsVisibilityConfig = {
+    hideAllRankings: false,
+    hideOverallStandings: false,
+    hideEventResults: false,
+    hideCategoryRankings: {
+      sports: false,
+      cultural: false,
+      literary: false,
+      special: false,
+    },
+    thrillMessage:
+      'Official tournament rankings are sealed by the Committee for the Final Day Awarding Ceremony! Champions will be unveiled live at the Grand Closing.',
+  };
+
+  const [adminSpectatorPreview, setAdminSpectatorPreview] = useState(false);
+  const [rankingsVisibilityState, setRankingsVisibilityState] =
+    useState<RankingsVisibilityConfig>(DEFAULT_RANKINGS_VISIBILITY);
+
+  useEffect(() => {
+    if (currentPalakasan?.rankingsVisibility) {
+      setRankingsVisibilityState(prev => ({
+        ...prev,
+        ...currentPalakasan.rankingsVisibility,
+        hideCategoryRankings: {
+          ...prev.hideCategoryRankings,
+          ...(currentPalakasan.rankingsVisibility?.hideCategoryRankings || {}),
+        },
+      }));
+    }
+  }, [currentPalakasan?.rankingsVisibility]);
+
+  const isRankingHidden = (scope: 'overall' | CategoryId | 'events'): boolean => {
+    // If logged-in admin is previewing normally (not testing spectator view), let them view real live rankings
+    if (isAdminLoggedIn && !adminSpectatorPreview) {
+      return false;
+    }
+
+    if (rankingsVisibilityState.hideAllRankings) {
+      return true;
+    }
+
+    if (scope === 'overall') {
+      return Boolean(rankingsVisibilityState.hideOverallStandings);
+    }
+
+    if (scope === 'events') {
+      return Boolean(rankingsVisibilityState.hideEventResults);
+    }
+
+    return Boolean(rankingsVisibilityState.hideCategoryRankings?.[scope]);
+  };
+
+  const updateRankingsVisibility = async (updates: Partial<RankingsVisibilityConfig>) => {
+    const palakasanId = viewedPalakasanId || currentPalakasan?.id || 'palakasan-2026';
+    const nextState: RankingsVisibilityConfig = {
+      ...rankingsVisibilityState,
+      ...updates,
+      hideCategoryRankings: {
+        ...rankingsVisibilityState.hideCategoryRankings,
+        ...(updates.hideCategoryRankings || {}),
+      },
+    };
+
+    setRankingsVisibilityState(nextState);
+
+    await updatePalakasanEdition(palakasanId, {
+      rankingsVisibility: nextState,
+    });
+
+    await addDatabaseLog(
+      'Updated Rankings Visibility',
+      updates.hideAllRankings !== undefined
+        ? `Final Day Thrill Mode was ${
+            updates.hideAllRankings
+              ? 'ACTIVATED (All Rankings & Standings are now sealed and hidden from public spectators)'
+              : 'DEACTIVATED (Rankings are now visible to the public)'
+          }.`
+        : 'Adjusted per-category rankings visibility settings.',
       adminUserDisplay,
       undefined,
       undefined,
@@ -410,10 +589,27 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // -----------------------------------------------------------------
 
   const computePointsMap = useMemo(() => {
-    const map: Record<string, { sports: number; cultural: number; literary: number; special: number }> = {};
+    const map: Record<
+      string,
+      {
+        sports: number;
+        cultural: number;
+        literary: number;
+        special: number;
+        overallDeduction: number;
+        totalDeductions: number;
+      }
+    > = {};
 
     colleges.forEach(col => {
-      map[col.id] = { sports: 0, cultural: 0, literary: 0, special: 0 };
+      map[col.id] = {
+        sports: 0,
+        cultural: 0,
+        literary: 0,
+        special: 0,
+        overallDeduction: 0,
+        totalDeductions: 0,
+      };
     });
 
     // 1. If point transactions exist for this palakasan, compute from official transactions
@@ -422,13 +618,37 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         .filter(t => t.status === 'official')
         .forEach(tx => {
           if (!map[tx.collegeId]) {
-            map[tx.collegeId] = { sports: 0, cultural: 0, literary: 0, special: 0 };
+            map[tx.collegeId] = {
+              sports: 0,
+              cultural: 0,
+              literary: 0,
+              special: 0,
+              overallDeduction: 0,
+              totalDeductions: 0,
+            };
           }
-          const cat = tx.category.toLowerCase();
-          if (cat === 'sports') map[tx.collegeId].sports += tx.pointsAwarded;
-          else if (cat === 'cultural') map[tx.collegeId].cultural += tx.pointsAwarded;
-          else if (cat === 'literary') map[tx.collegeId].literary += tx.pointsAwarded;
-          else if (cat === 'special') map[tx.collegeId].special += tx.pointsAwarded;
+          const cat = (tx.category || '').toLowerCase();
+          const pts = tx.pointsAwarded;
+
+          // Track penalties/deductions
+          if (pts < 0) {
+            map[tx.collegeId].totalDeductions += Math.abs(pts);
+          }
+
+          if (cat === 'sports') {
+            map[tx.collegeId].sports += pts;
+          } else if (cat === 'cultural') {
+            map[tx.collegeId].cultural += pts;
+          } else if (cat === 'literary') {
+            map[tx.collegeId].literary += pts;
+          } else if (cat === 'special') {
+            map[tx.collegeId].special += pts;
+          } else {
+            // Overall / general grievance deduction
+            if (pts < 0) {
+              map[tx.collegeId].overallDeduction += Math.abs(pts);
+            }
+          }
         });
     } else {
       // Fallback: derive directly from completed official events
@@ -437,7 +657,14 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         .forEach(event => {
           event.results?.forEach(res => {
             if (!map[res.collegeId]) {
-              map[res.collegeId] = { sports: 0, cultural: 0, literary: 0, special: 0 };
+              map[res.collegeId] = {
+                sports: 0,
+                cultural: 0,
+                literary: 0,
+                special: 0,
+                overallDeduction: 0,
+                totalDeductions: 0,
+              };
             }
             const cat = event.category.toLowerCase();
             if (cat === 'sports') map[res.collegeId].sports += res.points;
@@ -453,11 +680,24 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const overallStandings = useMemo<CollegeStanding[]>(() => {
     const list: CollegeStanding[] = colleges.map(college => {
-      const sports = computePointsMap[college.id]?.sports || 0;
-      const cultural = computePointsMap[college.id]?.cultural || 0;
-      const literary = computePointsMap[college.id]?.literary || 0;
-      const special = computePointsMap[college.id]?.special || 0;
-      const total = sports + cultural + literary + special;
+      const stats = computePointsMap[college.id] || {
+        sports: 0,
+        cultural: 0,
+        literary: 0,
+        special: 0,
+        overallDeduction: 0,
+        totalDeductions: 0,
+      };
+
+      const sports = Math.max(0, stats.sports);
+      const cultural = Math.max(0, stats.cultural);
+      const literary = Math.max(0, stats.literary);
+      const special = Math.max(0, stats.special);
+      const overallDeduction = stats.overallDeduction || 0;
+      const totalDeductions = stats.totalDeductions || 0;
+
+      const subtotal = sports + cultural + literary + special;
+      const total = Math.max(0, subtotal - overallDeduction);
 
       return {
         college,
@@ -465,6 +705,7 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         cultural,
         literary,
         special,
+        deductions: totalDeductions,
         overallPoints: total,
         rank: 1,
       };
@@ -490,9 +731,10 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const getCategoryStandings = (categoryId: CategoryId) => {
     const cat = categoryId.toLowerCase();
     const list = colleges.map(college => {
-      const pts = computePointsMap[college.id]
+      const rawPts = computePointsMap[college.id]
         ? (computePointsMap[college.id] as any)[cat] || 0
         : 0;
+      const pts = Math.max(0, rawPts);
 
       const eventsCompleted = events.filter(
         e =>
@@ -555,9 +797,9 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
     });
 
-    // Populate from official point transactions if available
+    // Populate from official point transactions if available (deductions kept confidential from public breakdown)
     const collegeTransactions = pointTransactions.filter(
-      t => t.collegeId === collegeId && t.status === 'official'
+      t => t.collegeId === collegeId && t.status === 'official' && t.pointsAwarded > 0 && t.eventType !== 'Deduction' && t.eventType !== 'Penalty'
     );
 
     if (collegeTransactions.length > 0) {
@@ -716,11 +958,85 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // PALAKASAN EDITIONS & SYSTEM MUTATIONS
   // -----------------------------------------------------------------
 
-  const createPalakasan = async (edition: PalakasanEdition): Promise<void> => {
+  const createPalakasan = async (
+    edition: PalakasanEdition,
+    initialEvents?: Omit<PalakasanEvent, 'id' | 'palakasanId'>[]
+  ): Promise<void> => {
     await createPalakasanEdition(edition);
+
+    let createdEventsCount = 0;
+    if (initialEvents && initialEvents.length > 0) {
+      const fullEvents: PalakasanEvent[] = [];
+      const participatingColleges =
+        edition.participatingColleges && edition.participatingColleges.length > 0
+          ? edition.participatingColleges
+          : colleges.map(c => c.id);
+
+      for (let i = 0; i < initialEvents.length; i++) {
+        const evData = initialEvents[i];
+        const newEventId = `ev-${evData.category}-${edition.year}-${i + 1}-${Date.now()}`;
+        let initialGames = evData.games;
+
+        if (!initialGames && evData.competitionFormat) {
+          const eventVenue = evData.venue || 'Campus Court';
+          const eventDate = evData.date || edition.startDate;
+          const eventStart = evData.startTime || '08:00 AM';
+
+          if (evData.competitionFormat === 'double-elimination') {
+            initialGames = generateDoubleEliminationGames(
+              newEventId,
+              participatingColleges,
+              eventDate,
+              eventVenue,
+              eventStart
+            );
+          } else if (evData.competitionFormat === 'round-robin') {
+            initialGames = generateRoundRobinGames(
+              newEventId,
+              participatingColleges,
+              eventDate,
+              eventVenue,
+              eventStart
+            );
+          } else if (evData.competitionFormat === 'single-elimination') {
+            initialGames = generateSingleEliminationGames(
+              newEventId,
+              participatingColleges,
+              eventDate,
+              eventVenue,
+              eventStart
+            );
+          } else if (evData.competitionFormat === 'head-to-head') {
+            initialGames = generateSingleEliminationGames(
+              newEventId,
+              participatingColleges,
+              eventDate,
+              eventVenue,
+              eventStart
+            );
+          }
+        }
+
+        fullEvents.push({
+          ...evData,
+          id: newEventId,
+          palakasanId: edition.id,
+          games: initialGames,
+          participatingColleges: evData.participatingColleges || participatingColleges,
+          status: 'upcoming',
+          resultStatus: 'pending',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
+      await saveEventsBatch(fullEvents);
+      createdEventsCount = fullEvents.length;
+    }
+
     await addDatabaseLog(
       'Created New PALAKASAN',
-      `Established new edition "${edition.name}" (${edition.year}). Historical records safely preserved.`,
+      `Established new edition "${edition.name}" (${edition.year}) with ${createdEventsCount} configured events. Historical records safely preserved.`,
       adminUserDisplay,
       undefined,
       undefined,
@@ -898,117 +1214,122 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     loserCollegeId: CollegeId,
     adminUser = adminUserDisplay
   ): Promise<{ success: boolean; error?: string }> => {
-    const event = events.find(e => e.id === eventId);
-    if (!event) return { success: false, error: 'Event not found.' };
-    const games = event.games || [];
-    const targetGame = games.find(g => g.id === gameId);
-    if (!targetGame) return { success: false, error: 'Game match not found in event.' };
+    try {
+      const event = events.find(e => e.id === eventId);
+      if (!event) return { success: false, error: 'Event not found.' };
+      const games = event.games || [];
+      const targetGame = games.find(g => g.id === gameId);
+      if (!targetGame) return { success: false, error: 'Game match not found in event.' };
 
-    const fmt = event.competitionFormat || 'double-elimination';
-    let updatedEvent: PalakasanEvent = { ...event };
-    let logDetail = '';
+      const fmt = event.competitionFormat || 'double-elimination';
+      let updatedEvent: PalakasanEvent = { ...event };
+      let logDetail = '';
 
-    if (fmt === 'double-elimination') {
-      const res = processDoubleEliminationGameResult(
-        event,
-        gameId,
-        scoreA,
-        scoreB,
-        winnerCollegeId,
-        loserCollegeId
-      );
-      updatedEvent.games = res.updatedGames;
-      updatedEvent.eliminatedColleges = res.eliminated;
-      if (res.champion) {
-        updatedEvent.championCollegeId = res.champion;
-        updatedEvent.status = 'completed';
-        updatedEvent.results = res.finalRankings;
-        logDetail = `Game #${targetGame.gameNumber} completed (${winnerCollegeId} ${scoreA} - ${scoreB} ${loserCollegeId}). Champion crowned: ${res.champion}!`;
-      } else {
-        updatedEvent.status = 'ongoing';
-        logDetail = `Game #${targetGame.gameNumber} completed: ${winnerCollegeId} defeated ${loserCollegeId} (${scoreA}-${scoreB}).`;
-      }
-    } else if (fmt === 'round-robin') {
-      const updatedGames = games.map(g => {
-        if (g.id === gameId) {
-          return {
-            ...g,
-            scoreA,
-            scoreB,
-            winnerCollegeId,
-            loserCollegeId,
-            status: 'completed' as GameStatus,
-            completedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          };
+      if (fmt === 'double-elimination') {
+        const res = processDoubleEliminationGameResult(
+          event,
+          gameId,
+          scoreA,
+          scoreB,
+          winnerCollegeId,
+          loserCollegeId
+        );
+        updatedEvent.games = res.updatedGames;
+        updatedEvent.eliminatedColleges = res.eliminated;
+        if (res.champion) {
+          updatedEvent.championCollegeId = res.champion;
+          updatedEvent.status = 'completed';
+          updatedEvent.results = res.finalRankings;
+          logDetail = `Game #${targetGame.gameNumber} completed (${winnerCollegeId} ${scoreA} - ${scoreB} ${loserCollegeId}). Champion crowned: ${res.champion}!`;
+        } else {
+          updatedEvent.status = 'ongoing';
+          logDetail = `Game #${targetGame.gameNumber} completed: ${winnerCollegeId} defeated ${loserCollegeId} (${scoreA}-${scoreB}).`;
         }
-        return g;
-      });
-      const rrResult = calculateRoundRobinStandings(
-        event.participatingColleges,
-        updatedGames,
-        event.tieBreakerRule || 'competition-points'
-      );
-      updatedEvent.games = updatedGames;
-      updatedEvent.roundRobinStats = rrResult.table;
+      } else if (fmt === 'round-robin') {
+        const updatedGames = games.map(g => {
+          if (g.id === gameId) {
+            return {
+              ...g,
+              scoreA,
+              scoreB,
+              winnerCollegeId,
+              loserCollegeId,
+              status: 'completed' as GameStatus,
+              completedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            };
+          }
+          return g;
+        });
+        const rrResult = calculateRoundRobinStandings(
+          event.participatingColleges,
+          updatedGames,
+          event.tieBreakerRule || 'competition-points'
+        );
+        updatedEvent.games = updatedGames;
+        updatedEvent.roundRobinStats = rrResult.table;
 
-      if (rrResult.isAllCompleted && rrResult.champion) {
-        updatedEvent.championCollegeId = rrResult.champion;
-        updatedEvent.status = 'completed';
-        updatedEvent.results = rrResult.finalRankings;
-        logDetail = `Round robin completed! Champion: ${rrResult.champion}. Placements resolved.`;
+        if (rrResult.isAllCompleted && rrResult.champion) {
+          updatedEvent.championCollegeId = rrResult.champion;
+          updatedEvent.status = 'completed';
+          updatedEvent.results = rrResult.finalRankings;
+          logDetail = `Round robin completed! Champion: ${rrResult.champion}. Placements resolved.`;
+        } else {
+          updatedEvent.status = 'ongoing';
+          logDetail = `Match completed (${winnerCollegeId} ${scoreA} - ${scoreB} ${loserCollegeId}). Round robin table updated.`;
+        }
+      } else if (fmt === 'single-elimination') {
+        const res = processSingleEliminationGameResult(
+          event,
+          gameId,
+          scoreA,
+          scoreB,
+          winnerCollegeId,
+          loserCollegeId
+        );
+        updatedEvent.games = res.updatedGames;
+        if (res.champion) {
+          updatedEvent.championCollegeId = res.champion;
+          updatedEvent.status = 'completed';
+          updatedEvent.results = res.finalRankings;
+          logDetail = `Single elimination final completed! Champion crowned: ${res.champion}.`;
+        } else {
+          updatedEvent.status = 'ongoing';
+          logDetail = `Match completed (${winnerCollegeId} ${scoreA} - ${scoreB} ${loserCollegeId}).`;
+        }
       } else {
-        updatedEvent.status = 'ongoing';
-        logDetail = `Match completed (${winnerCollegeId} ${scoreA} - ${scoreB} ${loserCollegeId}). Round robin table updated.`;
-      }
-    } else if (fmt === 'single-elimination') {
-      const res = processSingleEliminationGameResult(
-        event,
-        gameId,
-        scoreA,
-        scoreB,
-        winnerCollegeId,
-        loserCollegeId
-      );
-      updatedEvent.games = res.updatedGames;
-      if (res.champion) {
-        updatedEvent.championCollegeId = res.champion;
-        updatedEvent.status = 'completed';
-        updatedEvent.results = res.finalRankings;
-        logDetail = `Single elimination final completed! Champion crowned: ${res.champion}.`;
-      } else {
-        updatedEvent.status = 'ongoing';
+        const updatedGames = games.map(g => {
+          if (g.id === gameId) {
+            return {
+              ...g,
+              scoreA,
+              scoreB,
+              winnerCollegeId,
+              loserCollegeId,
+              status: 'completed' as GameStatus,
+              completedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            };
+          }
+          return g;
+        });
+        updatedEvent.games = updatedGames;
         logDetail = `Match completed (${winnerCollegeId} ${scoreA} - ${scoreB} ${loserCollegeId}).`;
       }
-    } else {
-      const updatedGames = games.map(g => {
-        if (g.id === gameId) {
-          return {
-            ...g,
-            scoreA,
-            scoreB,
-            winnerCollegeId,
-            loserCollegeId,
-            status: 'completed' as GameStatus,
-            completedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          };
-        }
-        return g;
-      });
-      updatedEvent.games = updatedGames;
-      logDetail = `Match completed (${winnerCollegeId} ${scoreA} - ${scoreB} ${loserCollegeId}).`;
+
+      await saveEvent(updatedEvent);
+      await addDatabaseLog(
+        'Entered Game Result',
+        logDetail,
+        adminUser,
+        event.eventName,
+        eventId,
+        viewedPalakasanId
+      );
+
+      return { success: true };
+    } catch (err: any) {
+      console.error('Error recording game result:', err);
+      return { success: false, error: err?.message || 'Failed to record game score.' };
     }
-
-    await saveEvent(updatedEvent);
-    await addDatabaseLog(
-      'Entered Game Result',
-      logDetail,
-      adminUser,
-      event.eventName,
-      eventId,
-      viewedPalakasanId
-    );
-
-    return { success: true };
   };
 
   const editGameResult = async (
@@ -1510,6 +1831,32 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
+  const applyGrievanceDeduction = async (params: {
+    collegeId: CollegeId;
+    pointsToDeduct: number;
+    reason: string;
+    scope: 'overall' | CategoryId;
+    eventId?: string;
+    eventName?: string;
+    resolutionId?: string;
+    adminUser?: string;
+  }): Promise<PointTransaction> => {
+    const palakasanId = viewedPalakasanId || currentPalakasan?.id || 'palakasan-2026';
+    const tx = await recordGrievancePointDeduction({
+      palakasanId,
+      collegeId: params.collegeId,
+      pointsToDeduct: params.pointsToDeduct,
+      reason: params.reason,
+      scope: params.scope,
+      eventId: params.eventId,
+      eventName: params.eventName,
+      resolutionId: params.resolutionId,
+      adminUser: params.adminUser || adminUserDisplay,
+    });
+    setPointTransactions(prev => [tx, ...prev]);
+    return tx;
+  };
+
   return (
     <PalakasanContext.Provider
       value={{
@@ -1571,18 +1918,26 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         resetToDefaultData,
         clearPointHistory,
         deletePointTransactionById,
+        applyGrievanceDeduction,
         selectedCollegeId,
         setSelectedCollegeId,
         selectedEventId,
         setSelectedEventId,
         isAdminLoggedIn,
         currentUser,
+        currentAccount,
+        committeeAccounts: COMMITTEE_ACCOUNTS,
         loginAdmin,
         loginWithGoogle,
         logoutAdmin,
         adminUserDisplay,
         simulatedTimeMode,
         setSimulatedTimeMode,
+        rankingsVisibility: rankingsVisibilityState,
+        updateRankingsVisibility,
+        isRankingHidden,
+        adminSpectatorPreview,
+        setAdminSpectatorPreview,
       }}
     >
       {children}

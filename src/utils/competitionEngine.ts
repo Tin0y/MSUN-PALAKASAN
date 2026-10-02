@@ -443,10 +443,10 @@ export function processDoubleEliminationGameResult(
   }
 
   // Check unlocking of G3 and G4
-  if (g3 && g3.participantA.collegeId && g3.participantB.collegeId) {
+  if (g3 && g3.participantA?.collegeId && g3.participantB?.collegeId) {
     g3.isUnlocked = true;
   }
-  if (g4 && g4.participantA.collegeId && g4.participantB.collegeId) {
+  if (g4 && g4.participantA?.collegeId && g4.participantB?.collegeId) {
     g4.isUnlocked = true;
   }
 
@@ -472,7 +472,7 @@ export function processDoubleEliminationGameResult(
   }
 
   // Check unlocking of G5
-  if (g5 && g5.participantA.collegeId && g5.participantB.collegeId) {
+  if (g5 && g5.participantA?.collegeId && g5.participantB?.collegeId) {
     g5.isUnlocked = true;
   }
 
@@ -487,7 +487,7 @@ export function processDoubleEliminationGameResult(
   }
 
   // Check unlocking of G6
-  if (g6 && g6.participantA.collegeId && g6.participantB.collegeId) {
+  if (g6 && g6.participantA?.collegeId && g6.participantB?.collegeId) {
     g6.isUnlocked = true;
   }
 
@@ -496,10 +496,10 @@ export function processDoubleEliminationGameResult(
 
   // 6. If Game 6 completed (Championship Grand Final):
   if (g.gameNumber === 6) {
-    const undefeatedTeam = g6.participantA.collegeId;
-    const oneLossTeam = g6.participantB.collegeId;
+    const undefeatedTeam = g6?.participantA?.collegeId;
+    const oneLossTeam = g6?.participantB?.collegeId;
 
-    if (winnerCollegeId === undefeatedTeam) {
+    if (undefeatedTeam && winnerCollegeId === undefeatedTeam) {
       // Undefeated team won G6! Champion crowned!
       champion = undefeatedTeam;
       addEliminated(loserCollegeId, 6, 'Championship Grand Final', '2nd');
@@ -511,7 +511,7 @@ export function processDoubleEliminationGameResult(
         g7.notes = 'Not required: Undefeated team won the Championship in Game 6.';
         g7.isUnlocked = false;
       }
-    } else {
+    } else if (undefeatedTeam && oneLossTeam) {
       // 1-Loss team defeated the undefeated team!
       // Both now have 1 loss. Game 7 is REQUIRED and UNLOCKED!
       if (g7) {
@@ -760,10 +760,10 @@ export function processSingleEliminationGameResult(
     if (g3) g3.participantB = { collegeId: loserCollegeId, placeholderText: loserCollegeId, losses: 1 };
   }
 
-  if (g3 && g3.participantA.collegeId && g3.participantB.collegeId) {
+  if (g3 && g3.participantA?.collegeId && g3.participantB?.collegeId) {
     g3.isUnlocked = true;
   }
-  if (g4 && g4.participantA.collegeId && g4.participantB.collegeId) {
+  if (g4 && g4.participantA?.collegeId && g4.participantB?.collegeId) {
     g4.isUnlocked = true;
   }
 

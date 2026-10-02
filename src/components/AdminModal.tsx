@@ -40,13 +40,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     events,
     colleges,
     isAdminLoggedIn,
+    currentAccount,
     loginAdmin,
     logoutAdmin,
     addEvent,
     updateEvent,
     deleteEvent,
     recordEventResults,
-    resetToInitialData,
+    resetToDefaultData,
   } = usePalakasan();
 
   const [activeTab, setActiveTab] = useState<'results' | 'events' | 'system'>('results');
@@ -130,7 +131,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     setLoginError('');
     const success = loginAdmin(passcode);
     if (!success) {
-      setLoginError('Invalid passcode. Try "admin" or "msun2026"');
+      setLoginError(
+        'Invalid passcode. Official credentials: admin@2026, gamesandsports@dan, cultural@maxine, literary@jennifer, special@shiene'
+      );
     }
   };
 
@@ -237,7 +240,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               <Shield className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Admin Committee Suite</h2>
+              <h2 className="text-xl font-bold text-slate-900">
+                {currentAccount ? `${currentAccount.name} • ${currentAccount.title}` : 'Admin Committee Suite'}
+              </h2>
               <p className="text-xs text-slate-500">
                 Official Result Certification, Scoring Audit, and Event Timetable
               </p>
@@ -248,10 +253,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
             {isAdminLoggedIn && (
               <button
                 onClick={logoutAdmin}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-700 hover:bg-rose-50 border border-rose-200 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-700 hover:bg-rose-50 border border-rose-200 transition-colors cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" />
-                <span>Sign Out</span>
+                <span>Sign Out ({currentAccount?.name || 'Admin'})</span>
               </button>
             )}
             <button
@@ -265,43 +270,36 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
         {/* Auth Gate: If not logged in */}
         {!isAdminLoggedIn ? (
-          <div className="p-8 sm:p-12 text-center max-w-md mx-auto space-y-5">
+          <div className="p-8 sm:p-10 text-center max-w-md mx-auto space-y-4">
             <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center mx-auto text-blue-700">
               <Lock className="w-7 h-7" />
             </div>
 
             <div>
-              <h3 className="text-lg font-bold text-slate-900 mb-1">Administrator Sign In</h3>
+              <h3 className="text-lg font-bold text-slate-900 mb-1">Committee Sign In</h3>
               <p className="text-xs text-slate-500">
-                Enter the official tournament committee passcode to manage certified scores and events.
+                Enter your authorized committee passcode to certify scores, manage matches, and schedule events.
               </p>
             </div>
 
-            <form onSubmit={handleLogin} className="space-y-3.5">
+            <form onSubmit={handleLogin} className="space-y-3.5 text-left">
               <div>
                 <input
                   type="password"
                   value={passcode}
                   onChange={e => setPasscode(e.target.value)}
-                  placeholder="Enter passcode (e.g. admin or msun2026)"
+                  placeholder="Enter committee passcode"
                   className="w-full px-3.5 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:border-blue-500 focus:bg-white"
                   autoFocus
                 />
                 {loginError && <p className="text-xs text-rose-600 mt-1">{loginError}</p>}
               </div>
 
-              <div className="flex items-center justify-between text-xs text-slate-500 pt-0.5">
-                <span>Demo Passcode:</span>
-                <code className="text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 font-mono font-semibold">
-                  admin
-                </code>
-              </div>
-
               <button
                 type="submit"
-                className="w-full py-2.5 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs transition-colors"
+                className="w-full py-2.5 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer"
               >
-                Sign In to Admin Panel
+                Sign In to Committee Panel
               </button>
             </form>
           </div>
@@ -847,7 +845,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                             'Are you sure you want to restore the official initial PALAKASAN demonstration data?'
                           )
                         ) {
-                          resetToInitialData();
+                          resetToDefaultData();
                           alert('Official demonstration data restored successfully.');
                         }
                       }}

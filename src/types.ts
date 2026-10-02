@@ -21,13 +21,35 @@ export interface PalakasanTheme {
   accentColor: string;
 }
 
+export type DisciplinePlacement = '1st' | '2nd' | '3rd' | '4th' | '5th' | '6th' | 'DQ';
+
+export interface DisciplinePointsConfig {
+  '1st': number;
+  '2nd': number;
+  '3rd': number;
+  '4th': number;
+  '5th': number;
+  '6th': number;
+  DQ: number;
+}
+
 export interface ScoringRulesConfig {
   majorPoints: Record<Placement, number>;
   minorPoints: Record<Placement, number>;
   specialPoints?: Record<Placement, number>;
+  disciplinePoints?: DisciplinePointsConfig;
 }
 
 export type PointTier = 'major' | 'minor' | 'special';
+
+export interface RankingsVisibilityConfig {
+  hideAllRankings: boolean; // Master toggle: Final Day Thrill / Blackout Mode
+  hideOverallStandings: boolean; // Hide Overall University Standings from public
+  hideEventResults: boolean; // Hide individual event winners/placements from public
+  hideCategoryRankings: Record<string, boolean>; // e.g. { sports: boolean, cultural: boolean, literary: boolean, special: boolean }
+  thrillMessage?: string;
+  adminSpectatorPreview?: boolean; // When true, admin previews the public hidden view
+}
 
 export interface PalakasanEdition {
   id: string;
@@ -46,6 +68,7 @@ export interface PalakasanEdition {
     availableFormats: CompetitionFormat[];
     tieBreakers: TieBreakerRule[];
   };
+  rankingsVisibility?: RankingsVisibilityConfig;
   createdAt: string;
   updatedAt: string;
 }
@@ -66,13 +89,16 @@ export interface PointTransaction {
   collegeId: CollegeId;
   eventId: string;
   eventName: string;
-  category: CategoryId;
-  eventType: 'Major' | 'Minor' | string;
-  finalRank: Placement;
-  pointsAwarded: number;
+  category: CategoryId | 'overall' | 'general';
+  eventType: 'Major' | 'Minor' | 'Special' | 'Deduction' | 'Penalty' | string;
+  finalRank?: Placement | string;
+  pointsAwarded: number; // Positive for awards (e.g. +50), negative for deductions/penalties (e.g. -10)
   dateAwarded: string;
   declaredBy: string;
   status: 'official' | 'revoked';
+  reason?: string; // Reason or grievance justification
+  grievanceResolutionId?: string; // Optional resolution number
+  deductionScope?: 'overall' | CategoryId; // Whether deducted from overall or specific category
 }
 
 export type EventType =
@@ -215,6 +241,16 @@ export interface EliminatedCollege {
   lockedPlacement?: Placement;
 }
 
+export interface SubCategoryDiscipline {
+  id: string;
+  name: string;
+  results?: {
+    collegeId: CollegeId;
+    placement: DisciplinePlacement;
+    points: number;
+  }[];
+}
+
 export interface PalakasanEvent {
   id: string;
   palakasanId?: string; // Reference to PalakasanEdition
@@ -222,6 +258,9 @@ export interface PalakasanEvent {
   category: CategoryId;
   pointTier?: PointTier; // 'major' | 'minor' | 'special'
   isMajor?: boolean; // Major Event (true) vs Minor Event (false)
+  isMultiCategoryEvent?: boolean; // e.g. Arnis, Swimming with accumulated category points
+  subCategories?: SubCategoryDiscipline[];
+  accumulatedScores?: Record<CollegeId, number>;
   hasCustomScoring?: boolean;
   customPoints?: Record<Placement, number>;
   date: string; // YYYY-MM-DD
@@ -254,6 +293,7 @@ export interface PalakasanEvent {
 
 export interface ActivityLogItem {
   id: string;
+  palakasanId?: string;
   action: string;
   eventTitle?: string;
   eventId?: string;
@@ -285,6 +325,7 @@ export interface CollegeStanding {
   cultural: number;
   literary: number;
   special: number;
+  deductions?: number; // Total points deducted due to grievances / infractions
   overallPoints: number;
   rank: number;
   isTie?: boolean;
@@ -330,3 +371,27 @@ export type AdminSection =
   | 'activity-log'
   | 'history'
   | 'settings';
+
+export type CommitteeRole =
+  | 'admin'
+  | 'literary_head'
+  | 'cultural_head'
+  | 'special_head'
+  | 'sports_head';
+
+export interface CommitteeAccount {
+  id: string;
+  role: CommitteeRole;
+  name: string;
+  title: string;
+  department: string;
+  passcode: string;
+  category?: CategoryId;
+  badge: string;
+  avatarInitials: string;
+  avatarColor: string;
+  badgeColor: string;
+  iconName: string;
+  description: string;
+}
+

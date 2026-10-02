@@ -70,6 +70,7 @@ export const AdminCompetitions: React.FC<AdminCompetitionsProps> = ({
   const [scoringError, setScoringError] = useState<string | null>(null);
   const [isEditingExisting, setIsEditingExisting] = useState(false);
   const [editReason, setEditReason] = useState('');
+  const [isSavingScore, setIsSavingScore] = useState(false);
 
   // Reschedule Modal State
   const [reschedulingGame, setReschedulingGame] = useState<GameMatch | null>(null);
@@ -92,9 +93,9 @@ export const AdminCompetitions: React.FC<AdminCompetitionsProps> = ({
   };
 
   // Submit Match Score
-  const handleSubmitScore = (e: React.FormEvent) => {
+  const handleSubmitScore = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeEvent || !scoringGame) return;
+    if (!activeEvent || !scoringGame || isSavingScore) return;
 
     const numA = parseInt(scoreA, 10);
     const numB = parseInt(scoreB, 10);
@@ -121,7 +122,10 @@ export const AdminCompetitions: React.FC<AdminCompetitionsProps> = ({
       return;
     }
 
-    if (!scoringGame.collegeA || !scoringGame.collegeB) {
+    const cA = scoringGame.collegeA || scoringGame.participantA?.collegeId;
+    const cB = scoringGame.collegeB || scoringGame.participantB?.collegeId;
+
+    if (!cA || !cB) {
       setScoringError('Both colleges must be determined before recording scores.');
       return;
     }
@@ -130,45 +134,54 @@ export const AdminCompetitions: React.FC<AdminCompetitionsProps> = ({
     let loserId: CollegeId;
 
     if (numA > numB) {
-      winnerId = scoringGame.collegeA;
-      loserId = scoringGame.collegeB;
+      winnerId = cA;
+      loserId = cB;
     } else {
-      winnerId = scoringGame.collegeB;
-      loserId = scoringGame.collegeA;
+      winnerId = cB;
+      loserId = cA;
     }
 
-    if (isEditingExisting) {
-      const res = editGameResult(
-        activeEvent.id,
-        scoringGame.id,
-        numA,
-        numB,
-        winnerId,
-        loserId,
-        editReason.trim() || 'Score correction',
-        'MSUN Tournament Officials'
-      );
-      if (!res.success) {
-        setScoringError(res.error || 'Failed to update game score.');
-        return;
-      }
-    } else {
-      const res = recordGameResult(
-        activeEvent.id,
-        scoringGame.id,
-        numA,
-        numB,
-        winnerId,
-        loserId,
-        'MSUN Tournament Officials'
-      );
-      if (!res.success) {
-        setScoringError(res.error || 'Failed to record game score.');
-        return;
-      }
-    }
+    setIsSavingScore(true);
+    setScoringError(null);
 
-    setScoringGame(null);
+    try {
+      if (isEditingExisting) {
+        const res = await editGameResult(
+          activeEvent.id,
+          scoringGame.id,
+          numA,
+          numB,
+          winnerId,
+          loserId,
+          editReason.trim() || 'Score correction',
+          'MSUN Tournament Officials'
+        );
+        if (!res.success) {
+          setScoringError(res.error || 'Failed to update game score.');
+          return;
+        }
+      } else {
+        const res = await recordGameResult(
+          activeEvent.id,
+          scoringGame.id,
+          numA,
+          numB,
+          winnerId,
+          loserId,
+          'MSUN Tournament Officials'
+        );
+        if (!res.success) {
+          setScoringError(res.error || 'Failed to record game score.');
+          return;
+        }
+      }
+
+      setScoringGame(null);
+    } catch (err: any) {
+      setScoringError(err?.message || 'Failed to record game score.');
+    } finally {
+      setIsSavingScore(false);
+    }
   };
 
   // Open Reschedule Modal
@@ -247,15 +260,15 @@ export const AdminCompetitions: React.FC<AdminCompetitionsProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="relative">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="relative w-full sm:w-64">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search tournaments..."
-                className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
+                className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
               />
             </div>
           </div>
@@ -568,91 +581,92 @@ export const AdminCompetitions: React.FC<AdminCompetitionsProps> = ({
               )}
 
               {/* Matchup Banner */}
-              <div className="grid grid-cols-2 gap-4 text-center">
-                {/* Team A */}
-                <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 space-y-2">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase">
-                    Team A
-                  </div>
-                  {scoringGame.collegeA ? (
-                    <div>
-                      <span
-                        className={`inline-block px-2.5 py-1 rounded-lg text-sm font-black ${
-                          getCollegeBadgeStyle(scoringGame.collegeA).bg
-                        } ${getCollegeBadgeStyle(scoringGame.collegeA).text}`}
-                      >
-                        {scoringGame.collegeA}
-                      </span>
-                      <p className="text-[11px] text-slate-500 mt-1 line-clamp-1">
-                        {
-                          COLLEGES.find(c => c.id === scoringGame.collegeA)
-                            ?.shortName
-                        }
-                      </p>
-                    </div>
-                  ) : (
-                    <span className="text-xs font-semibold text-slate-400 italic">
-                      TBD
-                    </span>
-                  )}
-                  <div className="pt-2">
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      Final Score:
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={scoreA}
-                      onChange={e => setScoreA(e.target.value)}
-                      placeholder="0"
-                      className="w-24 mx-auto text-center font-black text-lg py-1.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
-                      required
-                    />
-                  </div>
-                </div>
+              {(() => {
+                const teamA = scoringGame.collegeA || scoringGame.participantA?.collegeId;
+                const teamB = scoringGame.collegeB || scoringGame.participantB?.collegeId;
+                const descA = scoringGame.sourceDescriptionA || scoringGame.participantA?.placeholderText || 'TBD';
+                const descB = scoringGame.sourceDescriptionB || scoringGame.participantB?.placeholderText || 'TBD';
+                const badgeA = teamA ? getCollegeBadgeStyle(teamA) : null;
+                const badgeB = teamB ? getCollegeBadgeStyle(teamB) : null;
 
-                {/* Team B */}
-                <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 space-y-2">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase">
-                    Team B
-                  </div>
-                  {scoringGame.collegeB ? (
-                    <div>
-                      <span
-                        className={`inline-block px-2.5 py-1 rounded-lg text-sm font-black ${
-                          getCollegeBadgeStyle(scoringGame.collegeB).bg
-                        } ${getCollegeBadgeStyle(scoringGame.collegeB).text}`}
-                      >
-                        {scoringGame.collegeB}
-                      </span>
-                      <p className="text-[11px] text-slate-500 mt-1 line-clamp-1">
-                        {
-                          COLLEGES.find(c => c.id === scoringGame.collegeB)
-                            ?.shortName
-                        }
-                      </p>
+                return (
+                  <div className="grid grid-cols-2 gap-4 text-center">
+                    {/* Team A */}
+                    <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 space-y-2">
+                      <div className="text-[10px] font-bold text-slate-400 uppercase">
+                        Team A
+                      </div>
+                      {teamA && badgeA ? (
+                        <div>
+                          <span
+                            className={`inline-block px-2.5 py-1 rounded-lg text-sm font-black ${badgeA.bg} ${badgeA.text}`}
+                          >
+                            {teamA}
+                          </span>
+                          <p className="text-[11px] text-slate-500 mt-1 line-clamp-1">
+                            {COLLEGES.find(c => c.id === teamA)?.shortName}
+                          </p>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-semibold text-slate-400 italic">
+                          {descA}
+                        </span>
+                      )}
+                      <div className="pt-2">
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Final Score:
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={scoreA}
+                          onChange={e => setScoreA(e.target.value)}
+                          placeholder="0"
+                          className="w-24 mx-auto text-center font-black text-lg py-1.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
+                          required
+                        />
+                      </div>
                     </div>
-                  ) : (
-                    <span className="text-xs font-semibold text-slate-400 italic">
-                      TBD
-                    </span>
-                  )}
-                  <div className="pt-2">
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      Final Score:
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={scoreB}
-                      onChange={e => setScoreB(e.target.value)}
-                      placeholder="0"
-                      className="w-24 mx-auto text-center font-black text-lg py-1.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
-                      required
-                    />
+
+                    {/* Team B */}
+                    <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 space-y-2">
+                      <div className="text-[10px] font-bold text-slate-400 uppercase">
+                        Team B
+                      </div>
+                      {teamB && badgeB ? (
+                        <div>
+                          <span
+                            className={`inline-block px-2.5 py-1 rounded-lg text-sm font-black ${badgeB.bg} ${badgeB.text}`}
+                          >
+                            {teamB}
+                          </span>
+                          <p className="text-[11px] text-slate-500 mt-1 line-clamp-1">
+                            {COLLEGES.find(c => c.id === teamB)?.shortName}
+                          </p>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-semibold text-slate-400 italic">
+                          {descB}
+                        </span>
+                      )}
+                      <div className="pt-2">
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Final Score:
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={scoreB}
+                          onChange={e => setScoreB(e.target.value)}
+                          placeholder="0"
+                          className="w-24 mx-auto text-center font-black text-lg py-1.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
+                          required
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Dynamic Advancement Hint */}
               <div className="p-3 bg-blue-50/70 border border-blue-200/80 rounded-xl text-slate-600 text-[11px] space-y-1">
@@ -734,18 +748,28 @@ export const AdminCompetitions: React.FC<AdminCompetitionsProps> = ({
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
+                  disabled={isSavingScore}
                   onClick={() => setScoringGame(null)}
-                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold"
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-xs flex items-center gap-1.5"
+                  disabled={isSavingScore}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-xs flex items-center gap-1.5 disabled:opacity-60"
                 >
-                  <CheckCircle2 className="w-4 h-4" />
+                  {isSavingScore ? (
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4" />
+                  )}
                   <span>
-                    {isEditingExisting ? 'Save Corrected Score' : 'Record Official Match Result'}
+                    {isSavingScore
+                      ? 'Saving Result...'
+                      : isEditingExisting
+                      ? 'Save Corrected Score'
+                      : 'Record Official Match Result'}
                   </span>
                 </button>
               </div>

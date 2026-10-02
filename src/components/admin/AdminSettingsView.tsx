@@ -19,6 +19,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { usePalakasan } from '../../context/PalakasanContext';
+import { RankingsVisibilityManager } from './RankingsVisibilityManager';
 
 type ActionType = 'reset-defaults' | 'clear-points' | 'clear-logs' | null;
 
@@ -170,6 +171,9 @@ export const AdminSettingsView: React.FC = () => {
           </span>
         </div>
       </div>
+
+      {/* Final Day Thrill Mode & Rankings Visibility Controls */}
+      <RankingsVisibilityManager />
 
       {/* Main Grid: Friendly Actions & Scoring Reference */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

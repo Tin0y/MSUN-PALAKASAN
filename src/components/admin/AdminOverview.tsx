@@ -13,6 +13,9 @@ import {
   TrendingUp,
   History,
   Radio,
+  Lock,
+  Unlock,
+  Flame,
 } from 'lucide-react';
 import { usePalakasan } from '../../context/PalakasanContext';
 import { AdminSection } from '../../types';
@@ -37,6 +40,9 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
     getOverallLeader,
     getEventStats,
     activityLogs,
+    currentAccount,
+    rankingsVisibility,
+    updateRankingsVisibility,
   } = usePalakasan();
 
   const stats = getEventStats();
@@ -58,13 +64,14 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
           <div className="space-y-1.5 max-w-xl">
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/10 text-blue-200 border border-white/10">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-              Official Tournament Operations
+              <span>{currentAccount ? `${currentAccount.title} • ${currentAccount.department}` : 'Official Tournament Operations'}</span>
             </div>
             <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-white">
-              MSUN PALAKASAN Management
+              {currentAccount ? `Welcome, ${currentAccount.name}` : 'MSUN PALAKASAN Management'}
             </h2>
             <p className="text-xs sm:text-sm text-blue-100/80 leading-relaxed">
-              Real-time administrative command center. Oversee scheduling, assign official medal results, and supervise automatic university standings calculations.
+              {currentAccount?.description ||
+                'Real-time administrative command center. Oversee scheduling, assign official medal results, and supervise automatic university standings calculations.'}
             </p>
           </div>
 
@@ -115,6 +122,97 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
 
         {/* Decorative background geometry */}
         <div className="absolute right-0 bottom-0 translate-x-12 translate-y-12 w-64 h-64 bg-blue-600/20 rounded-full blur-3xl pointer-events-none" />
+      </div>
+
+      {/* Final Day Thrill Mode Fast-Access Card */}
+      <div
+        className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
+          rankingsVisibility.hideAllRankings
+            ? 'bg-amber-50/90 border-amber-300 shadow-xs'
+            : 'bg-white border-slate-200 shadow-2xs'
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 border ${
+              rankingsVisibility.hideAllRankings
+                ? 'bg-amber-100 text-amber-800 border-amber-300'
+                : 'bg-blue-50 text-blue-700 border-blue-200'
+            }`}
+          >
+            {rankingsVisibility.hideAllRankings ? (
+              <Lock className="w-5 h-5 text-amber-700" />
+            ) : (
+              <Trophy className="w-5 h-5 text-blue-600" />
+            )}
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-extrabold text-sm text-slate-900">
+                {rankingsVisibility.hideAllRankings
+                  ? 'Final Day Thrill Mode is ACTIVE'
+                  : 'Public Standings & Rankings: VISIBLE'}
+              </span>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.2 rounded-full ${
+                  rankingsVisibility.hideAllRankings
+                    ? 'bg-amber-100 text-amber-900 border border-amber-300 animate-pulse'
+                    : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                }`}
+              >
+                {rankingsVisibility.hideAllRankings ? '🔒 Sealed from Public' : '👁️ Live on Public Site'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500">
+              {rankingsVisibility.hideAllRankings
+                ? 'Rankings across events and categories are sealed for finale suspense. Committee heads can still certify results.'
+                : 'Spectators can see live university overall and division leaderboards.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+          <button
+            type="button"
+            onClick={() => onNavigateSection('standings')}
+            className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 shadow-2xs transition-colors cursor-pointer"
+          >
+            Visibility Controls
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              updateRankingsVisibility({
+                hideAllRankings: !rankingsVisibility.hideAllRankings,
+                hideOverallStandings: !rankingsVisibility.hideAllRankings,
+                hideEventResults: !rankingsVisibility.hideAllRankings,
+                hideCategoryRankings: {
+                  sports: !rankingsVisibility.hideAllRankings,
+                  cultural: !rankingsVisibility.hideAllRankings,
+                  literary: !rankingsVisibility.hideAllRankings,
+                  special: !rankingsVisibility.hideAllRankings,
+                },
+              })
+            }
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer ${
+              rankingsVisibility.hideAllRankings
+                ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                : 'bg-slate-900 hover:bg-slate-800 text-white'
+            }`}
+          >
+            {rankingsVisibility.hideAllRankings ? (
+              <>
+                <Unlock className="w-3.5 h-3.5" />
+                <span>Turn Off Thrill Mode</span>
+              </>
+            ) : (
+              <>
+                <Lock className="w-3.5 h-3.5" />
+                <span>Turn On Thrill Mode</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Metrics Grid (Clean White Cards, Blue Accents, Rounded Corners, Minimal Shadows) */}

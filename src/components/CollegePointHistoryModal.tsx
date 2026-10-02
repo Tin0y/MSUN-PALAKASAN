@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Trophy, Award, Sparkles, BookOpen, Flame } from 'lucide-react';
+import { X, Trophy, Award, Sparkles, BookOpen, Flame, Lock } from 'lucide-react';
 import { usePalakasan } from '../context/PalakasanContext';
 import { CategoryId, CollegeId } from '../types';
 import { getCollegeBadgeStyle, getPlacementBadge } from '../utils/collegeTheme';
@@ -15,13 +15,14 @@ export const CollegePointHistoryModal: React.FC<CollegePointHistoryModalProps> =
   onClose,
   onOpenEventModal,
 }) => {
-  const { getCollegeHistory } = usePalakasan();
+  const { getCollegeHistory, isRankingHidden } = usePalakasan();
 
   if (!collegeId) return null;
 
   const history = getCollegeHistory(collegeId);
   const college = history.college;
-  const badgeStyle = getCollegeBadgeStyle(college.acronym);
+  const badgeStyle = getCollegeBadgeStyle(college.id || college.acronym);
+  const isOverallHidden = isRankingHidden('overall');
 
   const categoryConfigs: {
     id: CategoryId;
@@ -65,7 +66,7 @@ export const CollegePointHistoryModal: React.FC<CollegePointHistoryModalProps> =
         <div className="p-5 sm:p-6 border-b border-slate-200 bg-white flex items-start justify-between gap-4">
           <div className="flex items-center gap-3.5">
             <div
-              className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-sm border shadow-xs ${badgeStyle.bg} ${badgeStyle.text} ${badgeStyle.border}`}
+              className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-sm border shadow-xs ${badgeStyle.badge}`}
             >
               {college.acronym}
             </div>
@@ -74,6 +75,17 @@ export const CollegePointHistoryModal: React.FC<CollegePointHistoryModalProps> =
                 <h2 className="text-xl sm:text-2xl font-bold text-slate-900">{college.acronym}</h2>
                 <span className="text-xs px-2 py-0.5 rounded font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                   Rank #{history.overallRank} Overall
+                </span>
+                <span
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-bold border"
+                  style={{
+                    backgroundColor: badgeStyle.hex + '18',
+                    color: badgeStyle.hex,
+                    borderColor: badgeStyle.hex + '40',
+                  }}
+                >
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: badgeStyle.hex }} />
+                  {badgeStyle.colorName}
                 </span>
                 {(college.moniker || college.mascot) && (
                   <span className="text-xs px-2 py-0.5 rounded font-semibold bg-blue-50 text-blue-700 border border-blue-200">
@@ -113,10 +125,17 @@ export const CollegePointHistoryModal: React.FC<CollegePointHistoryModalProps> =
               </div>
             </div>
             <div className="text-right">
-              <div className="text-2xl sm:text-3xl font-extrabold text-blue-950">
-                {history.overallTotal}{' '}
-                <span className="text-xs uppercase font-semibold text-slate-500">Points</span>
-              </div>
+              {isOverallHidden ? (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-100/80 text-amber-900 border border-amber-300 font-extrabold text-xs">
+                  <Lock className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Points Sealed</span>
+                </div>
+              ) : (
+                <div className="text-2xl sm:text-3xl font-extrabold text-blue-950">
+                  {history.overallTotal}{' '}
+                  <span className="text-xs uppercase font-semibold text-slate-500">Points</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -128,6 +147,8 @@ export const CollegePointHistoryModal: React.FC<CollegePointHistoryModalProps> =
 
             {categoryConfigs.map(cat => {
               const catScore = history.categories[cat.id];
+              const isCatHidden = isRankingHidden(cat.id);
+
               return (
                 <div
                   key={cat.id}
@@ -138,57 +159,77 @@ export const CollegePointHistoryModal: React.FC<CollegePointHistoryModalProps> =
                     <div className="flex items-center gap-2">
                       <span className="text-lg">{cat.icon}</span>
                       <h4 className="font-bold text-slate-900 text-sm sm:text-base">{cat.title}</h4>
-                      <span className="text-xs text-slate-500 bg-slate-50 px-2 py-0.2 rounded border border-slate-200">
-                        Rank #{catScore.rank}
+                      <span className={`text-xs px-2 py-0.2 rounded border ${
+                        isCatHidden
+                          ? 'bg-amber-50 text-amber-800 border-amber-200 font-semibold flex items-center gap-1'
+                          : 'text-slate-500 bg-slate-50 border-slate-200'
+                      }`}>
+                        {isCatHidden ? (
+                          <>
+                            <Lock className="w-2.5 h-2.5" />
+                            <span>Rank Sealed</span>
+                          </>
+                        ) : (
+                          `Rank #${catScore.rank}`
+                        )}
                       </span>
                     </div>
 
                     <div className="text-xs font-bold text-blue-900 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100">
-                      {cat.title}: {catScore.points} pts
+                      {isCatHidden ? (
+                        <span className="text-amber-800 flex items-center gap-1">
+                          <Lock className="w-3 h-3" />
+                          <span>Sealed</span>
+                        </span>
+                      ) : (
+                        `${cat.title}: ${catScore.points} pts`
+                      )}
                     </div>
                   </div>
 
                   {/* List of completed events in this category */}
                   {catScore.breakdown.length > 0 ? (
                     <div className="space-y-1.5 pt-1">
-                      {catScore.breakdown.map((item, idx) => {
-                        const badge = getPlacementBadge(item.placement);
-                        const isDQ = item.placement === 'DQ';
+                      {catScore.breakdown
+                        .filter(item => item.points >= 0)
+                        .map((item, idx) => {
+                          const badge = getPlacementBadge(item.placement);
+                          const isDQ = item.placement === 'DQ';
 
-                        return (
-                          <div
-                            key={idx}
-                            onClick={() => onOpenEventModal(item.eventId)}
-                            className="flex items-center justify-between py-2 px-3 rounded-lg bg-slate-50 hover:bg-blue-50/50 border border-slate-200 cursor-pointer transition-colors text-xs"
-                          >
-                            <div className="space-y-0.5">
-                              <div className="font-semibold text-slate-900 hover:text-blue-600 transition-colors">
-                                {item.eventName}
+                          return (
+                            <div
+                              key={idx}
+                              onClick={() => onOpenEventModal(item.eventId)}
+                              className="flex items-center justify-between py-2 px-3 rounded-lg bg-slate-50 hover:bg-blue-50/50 border border-slate-200 cursor-pointer transition-colors text-xs"
+                            >
+                              <div className="space-y-0.5">
+                                <div className="font-semibold text-slate-900 hover:text-blue-600 transition-colors">
+                                  {item.eventName}
+                                </div>
+                                <div className="text-[11px] text-slate-500 flex items-center gap-2">
+                                  <span>{item.date}</span>
+                                  <span>•</span>
+                                  <span>{item.venue}</span>
+                                </div>
                               </div>
-                              <div className="text-[11px] text-slate-500 flex items-center gap-2">
-                                <span>{item.date}</span>
-                                <span>•</span>
-                                <span>{item.venue}</span>
+
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`px-2 py-0.5 rounded font-bold text-[11px] border ${badge.badgeClass}`}
+                                >
+                                  {badge.icon} {badge.label}
+                                </span>
+                                <span
+                                  className={`font-bold text-xs ${
+                                    isDQ ? 'text-rose-700' : 'text-blue-900'
+                                  }`}
+                                >
+                                  {isDQ ? 'DQ (0 pts)' : `+${item.points} pts`}
+                                </span>
                               </div>
                             </div>
-
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`px-2 py-0.5 rounded font-bold text-[11px] border ${badge.badgeClass}`}
-                              >
-                                {badge.icon} {badge.label}
-                              </span>
-                              <span
-                                className={`font-bold text-xs ${
-                                  isDQ ? 'text-rose-700' : 'text-blue-900'
-                                }`}
-                              >
-                                +{item.points} pts
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
                     </div>
                   ) : (
                     <div className="text-xs text-slate-400 italic py-1">

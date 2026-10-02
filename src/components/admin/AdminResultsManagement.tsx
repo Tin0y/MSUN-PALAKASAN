@@ -51,6 +51,7 @@ export const AdminResultsManagement: React.FC<AdminResultsManagementProps> = ({
   const [matchScoreB, setMatchScoreB] = useState('');
   const [matchEditReason, setMatchEditReason] = useState('');
   const [matchScoringError, setMatchScoringError] = useState<string | null>(null);
+  const [isSavingMatchScore, setIsSavingMatchScore] = useState(false);
 
   const toggleMatches = (eventId: string) => {
     setExpandedMatches(prev => ({
@@ -68,9 +69,9 @@ export const AdminResultsManagement: React.FC<AdminResultsManagementProps> = ({
     setMatchScoringError(null);
   };
 
-  const handleSubmitMatchScore = (e: React.FormEvent) => {
+  const handleSubmitMatchScore = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeMatchForScoring) return;
+    if (!activeMatchForScoring || isSavingMatchScore) return;
 
     const { event, game } = activeMatchForScoring;
     const numA = parseInt(matchScoreA, 10);
@@ -105,38 +106,47 @@ export const AdminResultsManagement: React.FC<AdminResultsManagementProps> = ({
     const winnerId: CollegeId = numA > numB ? cA : cB;
     const loserId: CollegeId = numA > numB ? cB : cA;
 
-    if (game.status === 'completed') {
-      const res = editGameResult(
-        event.id,
-        game.id,
-        numA,
-        numB,
-        winnerId,
-        loserId,
-        matchEditReason.trim() || 'Score correction',
-        'MSUN Tournament Officials'
-      );
-      if (!res.success) {
-        setMatchScoringError(res.error || 'Failed to update score.');
-        return;
-      }
-    } else {
-      const res = recordGameResult(
-        event.id,
-        game.id,
-        numA,
-        numB,
-        winnerId,
-        loserId,
-        'MSUN Tournament Officials'
-      );
-      if (!res.success) {
-        setMatchScoringError(res.error || 'Failed to record score.');
-        return;
-      }
-    }
+    setIsSavingMatchScore(true);
+    setMatchScoringError(null);
 
-    setActiveMatchForScoring(null);
+    try {
+      if (game.status === 'completed') {
+        const res = await editGameResult(
+          event.id,
+          game.id,
+          numA,
+          numB,
+          winnerId,
+          loserId,
+          matchEditReason.trim() || 'Score correction',
+          'MSUN Tournament Officials'
+        );
+        if (!res.success) {
+          setMatchScoringError(res.error || 'Failed to update score.');
+          return;
+        }
+      } else {
+        const res = await recordGameResult(
+          event.id,
+          game.id,
+          numA,
+          numB,
+          winnerId,
+          loserId,
+          'MSUN Tournament Officials'
+        );
+        if (!res.success) {
+          setMatchScoringError(res.error || 'Failed to record score.');
+          return;
+        }
+      }
+
+      setActiveMatchForScoring(null);
+    } catch (err: any) {
+      setMatchScoringError(err?.message || 'Failed to record score.');
+    } finally {
+      setIsSavingMatchScore(false);
+    }
   };
 
   // Partition events according to their result status:
@@ -333,7 +343,7 @@ export const AdminResultsManagement: React.FC<AdminResultsManagementProps> = ({
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                     {/* Event Meta */}
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">
                           {catMeta.icon} {catMeta.name}
                         </span>
@@ -622,6 +632,32 @@ export const AdminResultsManagement: React.FC<AdminResultsManagementProps> = ({
                       </div>
                     </div>
                   )}
+
+                  {/* Multi-Category Accumulated Breakdown (Arnis / Swimming) */}
+                  {event.accumulatedScores && (
+                    <div className="p-2.5 bg-purple-50/70 border border-purple-200/80 rounded-xl space-y-1 text-xs">
+                      <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-purple-800">
+                        <span className="flex items-center gap-1">
+                          <span>🥋/🏊 Multi-Category Accumulated Breakdown</span>
+                          {event.subCategories && event.subCategories.length > 0 && (
+                            <span className="font-normal font-sans">({event.subCategories.length} categories)</span>
+                          )}
+                        </span>
+                        <span className="text-purple-600 font-normal">10-8-6-4-2-0 point system</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2 pt-0.5">
+                        {Object.entries(event.accumulatedScores).map(([colId, score]) => (
+                          <div
+                            key={colId}
+                            className="px-2 py-0.5 bg-white border border-purple-200 rounded-md font-mono text-[11px] flex items-center gap-1.5"
+                          >
+                            <span className="font-bold text-slate-800">{colId}:</span>
+                            <span className="font-black text-purple-700">{score} cat pts</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -743,16 +779,25 @@ export const AdminResultsManagement: React.FC<AdminResultsManagementProps> = ({
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
+                  disabled={isSavingMatchScore}
                   onClick={() => setActiveMatchForScoring(null)}
-                  className="px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 font-semibold"
+                  className="px-3 py-1.5 rounded-lg text-slate-600 hover:bg-slate-100 font-semibold disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                  disabled={isSavingMatchScore}
+                  className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold disabled:opacity-60 flex items-center gap-1.5"
                 >
-                  {activeMatchForScoring.game.status === 'completed' ? 'Save Correction' : 'Commit Match Score'}
+                  {isSavingMatchScore && (
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  )}
+                  {isSavingMatchScore
+                    ? 'Saving...'
+                    : activeMatchForScoring.game.status === 'completed'
+                    ? 'Save Correction'
+                    : 'Commit Match Score'}
                 </button>
               </div>
             </form>

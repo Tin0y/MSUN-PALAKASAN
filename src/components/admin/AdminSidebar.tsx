@@ -52,7 +52,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   isMobileOpen = false,
   onCloseMobile,
 }) => {
-  const { logoutAdmin, getEventStats, allPalakasans, venues, colleges } = usePalakasan();
+  const { logoutAdmin, getEventStats, allPalakasans, venues, colleges, currentAccount } = usePalakasan();
   const stats = getEventStats();
 
   const navGroups: NavGroup[] = [
@@ -174,8 +174,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-white border-r border-slate-200 text-slate-700 w-64 select-none">
-      {/* Brand Header */}
-      <div className="p-4 border-b border-slate-100 bg-blue-50/40">
+      {/* Brand Header & Active Account */}
+      <div className="p-4 border-b border-slate-100 bg-blue-50/40 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
@@ -192,6 +192,28 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Active Authenticated Account Pill */}
+        {currentAccount && (
+          <div className="p-2 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center gap-2">
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${currentAccount.avatarColor}`}>
+              {currentAccount.avatarInitials}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-xs font-bold text-slate-900 truncate">
+                  {currentAccount.name}
+                </span>
+                <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${currentAccount.badgeColor}`}>
+                  {currentAccount.badge}
+                </span>
+              </div>
+              <div className="text-[10px] text-slate-500 truncate">
+                {currentAccount.department}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Quick Action Button: Create Event */}
@@ -283,7 +305,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
         >
           <LogOut className="w-3.5 h-3.5" />
-          <span>Sign Out Admin</span>
+          <span>Sign Out ({currentAccount?.name || 'Admin'})</span>
         </button>
       </div>
     </div>

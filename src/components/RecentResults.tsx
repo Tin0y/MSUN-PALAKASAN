@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, CheckCircle2, ArrowRight, Calendar, MapPin } from 'lucide-react';
+import { FileText, CheckCircle2, ArrowRight, Calendar, MapPin, Lock } from 'lucide-react';
 import { usePalakasan } from '../context/PalakasanContext';
 import { CollegeId, NavigationTab } from '../types';
 import { getCategoryMeta, getCollegeBadgeStyle, getPlacementBadge } from '../utils/collegeTheme';
@@ -17,7 +17,7 @@ export const RecentResults: React.FC<RecentResultsProps> = ({
   onSelectTab,
   maxItems = 4,
 }) => {
-  const { getRecentResults } = usePalakasan();
+  const { getRecentResults, isRankingHidden } = usePalakasan();
   const recentEvents = getRecentResults(maxItems);
 
   return (
@@ -98,62 +98,74 @@ export const RecentResults: React.FC<RecentResultsProps> = ({
 
                     {/* Placements and Points Breakdown Table */}
                     <div className="space-y-1.5 mb-3">
-                      {event.results?.map((res) => {
-                        const badge = getPlacementBadge(res.placement);
-                        const collegeStyle = getCollegeBadgeStyle(res.collegeId);
-                        const isDQ = res.placement === 'DQ';
+                      {(() => {
+                        const isEventSealed = isRankingHidden('events') || isRankingHidden(event.category);
+                        return event.results?.map((res) => {
+                          const badge = getPlacementBadge(res.placement);
+                          const collegeStyle = getCollegeBadgeStyle(res.collegeId);
+                          const isDQ = res.placement === 'DQ';
 
-                        return (
-                          <div
-                            key={res.collegeId}
-                            className={`flex items-center justify-between py-1.5 px-2.5 rounded-lg border transition-colors ${
-                              isDQ
-                                ? 'bg-rose-50/70 border-rose-200 text-rose-800'
-                                : 'bg-slate-50 border-slate-100 hover:bg-slate-100/70'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              {/* Placement badge */}
-                              <span
-                                className={`inline-flex items-center justify-center min-w-[24px] h-6 px-1.5 rounded text-xs font-bold border ${badge.badgeClass}`}
-                              >
-                                {badge.icon}
-                              </span>
-
-                              {/* College Acronym Button */}
-                              <button
-                                onClick={() => onOpenCollegeModal(res.collegeId)}
-                                className={`font-bold text-xs px-2 py-0.5 rounded border ${collegeStyle.bg} ${collegeStyle.text} ${collegeStyle.border}`}
-                              >
-                                {res.collegeId}
-                              </button>
-
-                              {/* DQ note if any */}
-                              {isDQ && res.note && (
-                                <span className="hidden sm:inline text-[11px] text-rose-600 italic line-clamp-1 max-w-[140px]">
-                                  ({res.note})
+                          return (
+                            <div
+                              key={res.collegeId}
+                              className={`flex items-center justify-between py-1.5 px-2.5 rounded-lg border transition-colors ${
+                                isDQ
+                                  ? 'bg-rose-50/70 border-rose-200 text-rose-800'
+                                  : 'bg-slate-50 border-slate-100 hover:bg-slate-100/70'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                {/* Placement badge */}
+                                <span
+                                  className={`inline-flex items-center justify-center min-w-[24px] h-6 px-1.5 rounded text-xs font-bold border shrink-0 ${badge.badgeClass}`}
+                                >
+                                  {isEventSealed ? '🔒' : badge.icon}
                                 </span>
-                              )}
-                            </div>
 
-                            {/* Points Awarded */}
-                            <div className="flex items-center gap-2">
-                              {isDQ ? (
-                                <div className="flex items-center gap-1">
-                                  <span className="text-[10px] font-bold text-rose-700 uppercase bg-rose-100 px-1.5 py-0.2 rounded border border-rose-200">
-                                    DQ
+                                {/* College Acronym Button with Designated Color indicator */}
+                                <button
+                                  onClick={() => onOpenCollegeModal(res.collegeId)}
+                                  className={`font-bold text-xs px-2 py-0.5 rounded border inline-flex items-center gap-1.5 ${collegeStyle.badge}`}
+                                  title={`${res.collegeId} official color: ${collegeStyle.colorName}`}
+                                >
+                                  <span>{res.collegeId}</span>
+                                  <span
+                                    className="w-2 h-2 rounded-full inline-block shrink-0"
+                                    style={{ backgroundColor: collegeStyle.hex }}
+                                  />
+                                </button>
+
+                                {/* DQ note if any */}
+                                {!isEventSealed && isDQ && res.note && (
+                                  <span className="hidden sm:inline text-[11px] text-rose-600 italic line-clamp-1 max-w-[140px]">
+                                    ({res.note})
                                   </span>
-                                  <span className="text-xs font-medium text-slate-500">0 pts</span>
-                                </div>
-                              ) : (
-                                <span className="text-xs font-bold text-blue-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
-                                  +{res.points} pts
-                                </span>
-                              )}
+                                )}
+                              </div>
+
+                              {/* Points Awarded */}
+                              <div className="flex items-center gap-2">
+                                {isEventSealed ? (
+                                  <span className="text-xs font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                    Sealed
+                                  </span>
+                                ) : isDQ ? (
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-[10px] font-bold text-rose-700 uppercase bg-rose-100 px-1.5 py-0.2 rounded border border-rose-200">
+                                      DQ
+                                    </span>
+                                    <span className="text-xs font-medium text-slate-500">0 pts</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-xs font-bold text-blue-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                                    +{res.points} pts
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        });
+                      })()}
                     </div>
                   </div>
 

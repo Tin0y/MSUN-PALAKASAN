@@ -1,6 +1,7 @@
 import React from 'react';
-import { Menu, Plus, Calendar, FileCheck2, Trophy, ExternalLink, ShieldCheck } from 'lucide-react';
+import { Menu, Plus, Calendar, FileCheck2, Trophy, ExternalLink, ShieldCheck, LogOut, Lock } from 'lucide-react';
 import { AdminSection } from '../../types';
+import { usePalakasan } from '../../context/PalakasanContext';
 
 interface AdminHeaderProps {
   currentSection: AdminSection;
@@ -17,6 +18,13 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
   onNavigateSection,
   onBackToPublic,
 }) => {
+  const {
+    currentAccount,
+    logoutAdmin,
+    rankingsVisibility,
+    adminSpectatorPreview,
+    setAdminSpectatorPreview,
+  } = usePalakasan();
   const getSectionTitle = (sec: AdminSection): { title: string; subtitle: string } => {
     switch (sec) {
       case 'dashboard':
@@ -119,9 +127,9 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
                 <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">
                   {title}
                 </h1>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/80">
-                  <ShieldCheck className="w-3 h-3 text-blue-600" />
-                  Official Admin
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${currentAccount?.badgeColor || 'bg-blue-50 text-blue-700 border-blue-200/80'}`}>
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>{currentAccount ? `${currentAccount.name} • ${currentAccount.badge}` : 'Official Admin'}</span>
                 </span>
               </div>
               <p className="text-xs text-slate-500 hidden sm:block line-clamp-1">{subtitle}</p>
@@ -168,6 +176,23 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
 
             <div className="h-4 w-px bg-slate-200 mx-0.5 hidden sm:block" />
 
+            {rankingsVisibility.hideAllRankings && (
+              <button
+                type="button"
+                onClick={() => setAdminSpectatorPreview(!adminSpectatorPreview)}
+                className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
+                  adminSpectatorPreview
+                    ? 'bg-amber-100 text-amber-900 border-amber-300 ring-2 ring-amber-300/30'
+                    : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
+                }`}
+                title={adminSpectatorPreview ? 'Currently previewing public sealed curtain. Click for Live Committee view.' : 'Rankings sealed from public. Click to preview sealed spectator screen.'}
+              >
+                <Lock className="w-3.5 h-3.5 text-amber-700" />
+                <span className="hidden sm:inline">Thrill Mode:</span>
+                <span>{adminSpectatorPreview ? 'Spectator View' : 'Committee View'}</span>
+              </button>
+            )}
+
             <button
               id="admin-header-public-btn"
               onClick={onBackToPublic}
@@ -176,6 +201,19 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
             >
               <ExternalLink className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Public Site</span>
+            </button>
+
+            <button
+              id="admin-header-logout-btn"
+              onClick={() => {
+                logoutAdmin();
+                onBackToPublic();
+              }}
+              className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-rose-600 hover:bg-rose-50 border border-rose-200 text-xs font-medium transition-colors cursor-pointer"
+              title="Sign out of administrative session"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden xl:inline">Sign Out</span>
             </button>
           </div>
         </div>

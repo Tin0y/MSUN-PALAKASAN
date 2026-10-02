@@ -14,6 +14,7 @@ import {
   BookOpen,
   Sparkles,
   Radio,
+  Lock,
 } from 'lucide-react';
 import { NavigationTab } from '../types';
 import { usePalakasan } from '../context/PalakasanContext';
@@ -34,11 +35,13 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const {
     isAdminLoggedIn,
+    currentAccount,
     getHappeningNowEvent,
     allPalakasans,
     viewedPalakasanId,
     setViewedPalakasanId,
     currentPalakasan,
+    rankingsVisibility,
   } = usePalakasan();
   const liveEvent = getHappeningNowEvent();
 
@@ -73,6 +76,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="text-slate-600 text-[11px]">
               Mindanao State University at Naawan • University-Wide Competition
             </span>
+            {rankingsVisibility.hideAllRankings && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
+                <Lock className="w-2.5 h-2.5 text-amber-800" />
+                <span>Thrill Mode Active</span>
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <span className="text-[11px] text-blue-900/80 font-medium hidden lg:inline">
@@ -80,7 +89,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </span>
             {isAdminLoggedIn && (
               <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                <Shield className="w-3 h-3" /> Admin Mode
+                <Shield className="w-3 h-3" /> {currentAccount ? `${currentAccount.name} (${currentAccount.badge})` : 'Admin Mode'}
               </span>
             )}
           </div>
@@ -190,7 +199,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <Shield className="w-3.5 h-3.5" />
-              <span>{isAdminLoggedIn ? 'Admin Mode' : 'Admin'}</span>
+              <span>{isAdminLoggedIn ? (currentAccount ? `${currentAccount.name} (${currentAccount.badge})` : 'Admin Portal') : 'Admin'}</span>
             </button>
 
             {/* Mobile Menu Toggle Button */}

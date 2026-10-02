@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckCircle2, Calendar, MapPin, Search } from 'lucide-react';
+import { CheckCircle2, Calendar, MapPin, Search, Lock } from 'lucide-react';
 import { usePalakasan } from '../context/PalakasanContext';
 import { CategoryId, CollegeId } from '../types';
 import { getCategoryMeta, getCollegeBadgeStyle, getPlacementBadge } from '../utils/collegeTheme';
@@ -13,7 +13,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
   onOpenEventModal,
   onOpenCollegeModal,
 }) => {
-  const { events } = usePalakasan();
+  const { events, isRankingHidden } = usePalakasan();
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | 'all'>('all');
   const [selectedCollege, setSelectedCollege] = useState<CollegeId | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -147,53 +147,60 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
 
                 {/* Certified Placement Rows */}
                 <div className="space-y-1.5 pt-1">
-                  {event.results?.map(res => {
-                    const badge = getPlacementBadge(res.placement);
-                    const collegeStyle = getCollegeBadgeStyle(res.collegeId);
-                    const isDQ = res.placement === 'DQ';
+                  {(() => {
+                    const isEventSealed = isRankingHidden('events') || isRankingHidden(event.category);
+                    return event.results?.map(res => {
+                      const badge = getPlacementBadge(res.placement);
+                      const collegeStyle = getCollegeBadgeStyle(res.collegeId);
+                      const isDQ = res.placement === 'DQ';
 
-                    return (
-                      <div
-                        key={res.collegeId}
-                        className={`flex items-center justify-between p-2 rounded-lg border ${
-                          isDQ
-                            ? 'bg-rose-50/70 border-rose-200 text-rose-800'
-                            : 'bg-slate-50 border-slate-100'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`min-w-[24px] h-6 px-1.5 rounded flex items-center justify-center text-xs font-bold border ${badge.badgeClass}`}
-                          >
-                            {badge.icon} {badge.label}
-                          </span>
-                          <button
-                            onClick={() => onOpenCollegeModal(res.collegeId)}
-                            className={`px-2 py-0.5 rounded text-xs font-bold border ${collegeStyle.bg} ${collegeStyle.text} ${collegeStyle.border}`}
-                          >
-                            {res.collegeId}
-                          </button>
-                          {isDQ && res.note && (
-                            <span className="text-[11px] text-rose-600 italic hidden sm:inline">
-                              ({res.note})
+                      return (
+                        <div
+                          key={res.collegeId}
+                          className={`flex items-center justify-between p-2 rounded-lg border ${
+                            isDQ
+                              ? 'bg-rose-50/70 border-rose-200 text-rose-800'
+                              : 'bg-slate-50 border-slate-100'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`min-w-[24px] h-6 px-1.5 rounded flex items-center justify-center text-xs font-bold border ${badge.badgeClass}`}
+                            >
+                              {isEventSealed ? '🔒' : badge.icon} {isEventSealed ? 'Sealed' : badge.label}
                             </span>
-                          )}
-                        </div>
+                            <button
+                              onClick={() => onOpenCollegeModal(res.collegeId)}
+                              className={`px-2 py-0.5 rounded text-xs font-bold border ${collegeStyle.bg} ${collegeStyle.text} ${collegeStyle.border}`}
+                            >
+                              {res.collegeId}
+                            </button>
+                            {!isEventSealed && isDQ && res.note && (
+                              <span className="text-[11px] text-rose-600 italic hidden sm:inline">
+                                ({res.note})
+                              </span>
+                            )}
+                          </div>
 
-                        <div>
-                          {isDQ ? (
-                            <span className="text-xs font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded border border-rose-200">
-                              DQ — 0 pts
-                            </span>
-                          ) : (
-                            <span className="text-xs font-bold text-blue-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
-                              +{res.points} pts
-                            </span>
-                          )}
+                          <div>
+                            {isEventSealed ? (
+                              <span className="text-xs font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                Points Sealed
+                              </span>
+                            ) : isDQ ? (
+                              <span className="text-xs font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded border border-rose-200">
+                                DQ — 0 pts
+                              </span>
+                            ) : (
+                              <span className="text-xs font-bold text-blue-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                                +{res.points} pts
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    });
+                  })()}
                 </div>
               </div>
             );

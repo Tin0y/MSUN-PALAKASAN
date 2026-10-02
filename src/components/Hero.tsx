@@ -9,7 +9,7 @@ interface HeroProps {
 }
 
 export const Hero: React.FC<HeroProps> = ({ onSelectTab, onScrollToOverall }) => {
-  const { overallStandings, events, getHappeningNowEvent } = usePalakasan();
+  const { overallStandings, events, getHappeningNowEvent, currentPalakasan } = usePalakasan();
   const overallLeader = overallStandings.length > 0 ? overallStandings[0] : null;
   const liveEvent = getHappeningNowEvent();
   const completedCount = events.filter(e => e.status === 'completed').length;
@@ -26,17 +26,23 @@ export const Hero: React.FC<HeroProps> = ({ onSelectTab, onScrollToOverall }) =>
               Unity • Excellence • Sportsmanship
             </span>
             <span className="w-1 h-1 rounded-full bg-blue-400" />
-            <span className="text-xs font-medium text-blue-700">MSUN 2026</span>
+            <span className="text-xs font-medium text-blue-700">
+              {currentPalakasan ? currentPalakasan.name || `PALAKASAN ${currentPalakasan.year}` : 'MSUN Tournament'}
+            </span>
           </div>
 
           {/* Main Title */}
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 mb-2">
-            MSUN <span className="text-blue-600">PALAKASAN</span>
+            {currentPalakasan?.theme?.title ? (
+              currentPalakasan.theme.title
+            ) : (
+              <>MSUN <span className="text-blue-600">PALAKASAN</span></>
+            )}
           </h1>
 
           {/* Subtitle */}
           <p className="text-lg sm:text-xl font-semibold text-slate-700 max-w-2xl mb-3">
-            MSU at Naawan University-Wide Competition
+            {currentPalakasan?.theme?.tagline || 'MSU at Naawan University-Wide Competition'}
           </p>
 
           <p className="text-sm sm:text-base text-slate-600 max-w-2xl leading-relaxed mb-8">

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Award, Sparkles, BookOpen, Flame, ChevronRight, Trophy } from 'lucide-react';
+import { Award, Sparkles, BookOpen, Flame, ChevronRight, Trophy, Lock } from 'lucide-react';
 import { usePalakasan } from '../context/PalakasanContext';
 import { CategoryId, NavigationTab } from '../types';
 
@@ -12,7 +12,7 @@ export const CategoryLeaders: React.FC<CategoryLeadersProps> = ({
   onSelectTab,
   onOpenCollegeModal,
 }) => {
-  const { getCategoryLeader } = usePalakasan();
+  const { getCategoryLeader, isRankingHidden } = usePalakasan();
 
   const leaderCards: {
     id: CategoryId;
@@ -90,7 +90,19 @@ export const CategoryLeaders: React.FC<CategoryLeadersProps> = ({
                   </div>
 
                   {/* Leader College info */}
-                  {college ? (
+                  {isRankingHidden(item.id) ? (
+                    <div className="my-2 py-2">
+                      <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-center space-y-1">
+                        <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-amber-900">
+                          <Lock className="w-3.5 h-3.5 text-amber-700" />
+                          <span>Sealed for Reveal</span>
+                        </div>
+                        <div className="text-[11px] text-amber-800">
+                          Final standings kept confidential for Closing Ceremonies
+                        </div>
+                      </div>
+                    </div>
+                  ) : college ? (
                     <div className="my-2">
                       <div className="flex items-baseline justify-between gap-2">
                         <button

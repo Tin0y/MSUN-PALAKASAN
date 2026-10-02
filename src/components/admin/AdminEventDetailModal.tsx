@@ -22,6 +22,7 @@ import { usePalakasan } from '../../context/PalakasanContext';
 import { CollegeId, PalakasanEvent } from '../../types';
 import { COLLEGES, VENUES } from '../../data/initialData';
 import { getCategoryMeta, getCollegeBadgeStyle, getPlacementBadge } from '../../utils/collegeTheme';
+import { DeleteEventModal } from './DeleteEventModal';
 
 interface AdminEventDetailModalProps {
   isOpen: boolean;
@@ -65,6 +66,7 @@ export const AdminEventDetailModal: React.FC<AdminEventDetailModalProps> = ({
 
   const [isPostponing, setIsPostponing] = useState(false);
   const [postponeNote, setPostponeNote] = useState('');
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   if (!isOpen || !event) return null;
 
@@ -108,10 +110,7 @@ export const AdminEventDetailModal: React.FC<AdminEventDetailModalProps> = ({
   };
 
   const handleDelete = () => {
-    if (window.confirm(`Are you sure you want to delete "${event.eventName}"? This action cannot be undone.`)) {
-      deleteEvent(event.id);
-      onClose();
-    }
+    setIsDeleteModalOpen(true);
   };
 
   return (
@@ -702,6 +701,13 @@ export const AdminEventDetailModal: React.FC<AdminEventDetailModalProps> = ({
           </button>
         </div>
       </div>
+
+      <DeleteEventModal
+        event={event}
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onDeleted={onClose}
+      />
     </div>
   );
 };

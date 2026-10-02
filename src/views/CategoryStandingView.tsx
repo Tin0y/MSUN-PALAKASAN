@@ -4,6 +4,9 @@ import {
   MapPin,
   CheckCircle2,
   Trophy,
+  Lock,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { usePalakasan } from '../context/PalakasanContext';
 import { CategoryId, CollegeId } from '../types';
@@ -20,7 +23,20 @@ export const CategoryStandingView: React.FC<CategoryStandingViewProps> = ({
   onOpenCollegeModal,
   onOpenEventModal,
 }) => {
-  const { getCategoryStandings, events, categories } = usePalakasan();
+  const {
+    getCategoryStandings,
+    events,
+    categories,
+    colleges,
+    isRankingHidden,
+    rankingsVisibility,
+    isAdminLoggedIn,
+    adminSpectatorPreview,
+    setAdminSpectatorPreview,
+  } = usePalakasan();
+
+  const isHidden = isRankingHidden(categoryId);
+  const isEventsHidden = isRankingHidden('events') || isHidden;
 
   const categoryMeta = getCategoryMeta(categoryId);
   const categoryInfo = categories.find(c => c.id === categoryId);
@@ -38,6 +54,29 @@ export const CategoryStandingView: React.FC<CategoryStandingViewProps> = ({
 
   return (
     <div className="py-8 sm:py-10 space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Admin Spectator Preview Switch if this category is sealed */}
+      {isAdminLoggedIn && isHidden && (
+        <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+              <Lock className="w-3 h-3 text-amber-800" />
+              <span>Thrill Mode Active</span>
+            </span>
+            <span className="text-amber-800">
+              {categoryMeta.name} rankings are currently <strong>sealed from public spectators</strong>.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setAdminSpectatorPreview(!adminSpectatorPreview)}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 font-semibold transition-colors cursor-pointer"
+          >
+            {adminSpectatorPreview ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+            <span>{adminSpectatorPreview ? 'Switch to Committee Live View' : 'Preview Public Sealed Screen'}</span>
+          </button>
+        </div>
+      )}
+
       {/* Category Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
@@ -59,8 +98,23 @@ export const CategoryStandingView: React.FC<CategoryStandingViewProps> = ({
           </p>
         </div>
 
-        {/* Category Leader Badge */}
-        {standings.length > 0 && (
+        {/* Category Leader Badge or Sealed Badge */}
+        {isHidden ? (
+          <div className="bg-amber-50/90 border border-amber-200 rounded-xl p-3.5 flex items-center gap-3.5 shadow-xs self-start md:self-auto">
+            <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center text-lg font-bold border border-amber-300">
+              <Lock className="w-5 h-5 text-amber-700" />
+            </div>
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-amber-800">
+                Final Day Thrill Mode
+              </div>
+              <div className="text-xl font-bold text-slate-900">Rankings Sealed</div>
+              <div className="text-xs text-amber-800 font-medium">
+                Unveiled at Closing Ceremonies
+              </div>
+            </div>
+          </div>
+        ) : standings.length > 0 ? (
           <div className="bg-blue-50/80 border border-blue-200 rounded-xl p-3.5 flex items-center gap-3.5 shadow-xs self-start md:self-auto">
             <div className="w-10 h-10 rounded-lg bg-white text-blue-800 flex items-center justify-center text-lg font-bold border border-blue-200">
               🥇
@@ -77,10 +131,10 @@ export const CategoryStandingView: React.FC<CategoryStandingViewProps> = ({
               </div>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
-      {/* Category Ranking Table */}
+      {/* Category Ranking Table or Sealed Display */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
@@ -92,88 +146,158 @@ export const CategoryStandingView: React.FC<CategoryStandingViewProps> = ({
           </span>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-xs">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-200 bg-blue-50/70 text-[11px] font-bold uppercase tracking-wider text-blue-900">
-                <th className="py-3 px-6 text-center w-20">Rank</th>
-                <th className="py-3 px-6">College</th>
-                <th className="py-3 px-6 text-center">Events Contested</th>
-                <th className="py-3 px-6 text-right">Category Points</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-sm font-medium">
-              {standings.map((item) => {
-                const college = item.college;
-                const style = getCollegeBadgeStyle(college.acronym);
+        {isHidden ? (
+          <div className="rounded-2xl border border-amber-200/80 bg-gradient-to-b from-amber-50/70 via-white to-amber-50/40 p-6 sm:p-10 text-center shadow-xs space-y-6">
+            <div className="w-16 h-16 rounded-2xl bg-amber-100/90 border border-amber-300 text-amber-800 flex items-center justify-center mx-auto shadow-sm animate-pulse">
+              <Lock className="w-8 h-8 text-amber-700" />
+            </div>
 
+            <div className="max-w-xl mx-auto space-y-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                <Trophy className="w-3.5 h-3.5 text-amber-700" />
+                <span>{categoryMeta.name} Division • Standings Sealed</span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+                {categoryMeta.name} Rankings Under Committee Seal
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                {rankingsVisibility.thrillMessage ||
+                  `In anticipation of the Grand Awarding and Closing Ceremony, tournament standings for ${categoryMeta.name} have been sealed for final suspense! Winners will be unveiled live.`}
+              </p>
+            </div>
+
+            {/* Contender Colleges Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-3xl mx-auto pt-2">
+              {colleges.map((c) => {
+                const style = getCollegeBadgeStyle(c.id);
                 return (
-                  <tr
-                    key={college.id}
-                    onClick={() => onOpenCollegeModal(college.id)}
-                    className="hover:bg-slate-50 cursor-pointer transition-colors"
+                  <div
+                    key={c.id}
+                    onClick={() => onOpenCollegeModal(c.id)}
+                    className="p-4 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 shadow-2xs text-center space-y-2 cursor-pointer transition-colors"
                   >
-                    <td className="py-3.5 px-6 text-center">
-                      <div className="flex items-center justify-center">
-                        {item.rank === 1 && (
-                          <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-amber-50 text-amber-800 font-bold text-xs border border-amber-200">
-                            🥇
-                          </span>
-                        )}
-                        {item.rank === 2 && (
-                          <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200">
-                            🥈
-                          </span>
-                        )}
-                        {item.rank === 3 && (
-                          <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-amber-100/60 text-amber-900 font-bold text-xs border border-amber-200">
-                            🥉
-                          </span>
-                        )}
-                        {item.rank === 4 && (
-                          <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-50 text-slate-600 font-medium text-xs border border-slate-200">
-                            4th
-                          </span>
-                        )}
-                      </div>
-                    </td>
-
-                    <td className="py-3.5 px-6">
-                      <div className="flex items-center gap-3">
-                        <span
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs border ${style.bg} ${style.text} ${style.border}`}
-                        >
-                          {college.acronym}
-                        </span>
-                        <div>
-                          <div className="font-bold text-slate-900 text-sm">
-                            {college.acronym}
-                          </div>
-                          <div className="text-xs text-slate-500 font-normal">
-                            {college.name}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="py-3.5 px-6 text-center">
-                      <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded border border-slate-200">
-                        {item.eventsCompleted} Completed
-                      </span>
-                    </td>
-
-                    <td className="py-3.5 px-6 text-right">
-                      <span className="text-lg font-bold text-blue-900">
-                        {item.points}{' '}
-                        <span className="text-xs uppercase text-slate-500 font-semibold">pts</span>
-                      </span>
-                    </td>
-                  </tr>
+                    <div
+                      className={`w-10 h-10 rounded-xl mx-auto flex items-center justify-center font-extrabold text-xs border ${style.bg} ${style.text} ${style.border}`}
+                    >
+                      {c.acronym}
+                    </div>
+                    <div>
+                      <div className="font-bold text-xs text-slate-900 truncate">{c.name}</div>
+                      <div className="text-[10px] text-slate-500">{style.colorName} Team</div>
+                    </div>
+                    <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                      <Lock className="w-2.5 h-2.5" />
+                      <span>Sealed for Reveal</span>
+                    </div>
+                  </div>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
+            </div>
+
+            <div className="text-[11px] text-slate-500 font-medium">
+              ✨ Concluded events remain audited. Standings will be unveiled during the Grand Awarding!
+            </div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-xs">
+            <table className="w-full min-w-[550px] text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 bg-blue-50/70 text-[11px] font-bold uppercase tracking-wider text-blue-900">
+                  <th className="py-3 px-4 sm:px-6 text-center w-20">Rank</th>
+                  <th className="py-3 px-4 sm:px-6">College & Designated Color</th>
+                  <th className="py-3 px-4 sm:px-6 text-center">Events Contested</th>
+                  <th className="py-3 px-4 sm:px-6 text-right">Category Points</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-sm font-medium">
+                {standings.map((item) => {
+                  const college = item.college;
+                  const style = getCollegeBadgeStyle(college.id);
+
+                  return (
+                    <tr
+                      key={college.id}
+                      onClick={() => onOpenCollegeModal(college.id)}
+                      className="hover:bg-slate-50 cursor-pointer transition-colors"
+                    >
+                      <td className="py-3.5 px-4 sm:px-6 text-center">
+                        <div className="flex items-center justify-center">
+                          {item.rank === 1 && (
+                            <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-amber-50 text-amber-800 font-bold text-xs border border-amber-200">
+                              🥇
+                            </span>
+                          )}
+                          {item.rank === 2 && (
+                            <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200">
+                              🥈
+                            </span>
+                          )}
+                          {item.rank === 3 && (
+                            <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-amber-100/60 text-amber-900 font-bold text-xs border border-amber-200">
+                              🥉
+                            </span>
+                          )}
+                          {item.rank === 4 && (
+                            <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-50 text-slate-600 font-medium text-xs border border-slate-200">
+                              4th
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 px-4 sm:px-6">
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs border shrink-0 ${style.badge}`}
+                          >
+                            {college.acronym}
+                          </span>
+                          <div>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-slate-900 text-sm">
+                                {college.acronym}
+                              </span>
+                              <span
+                                className="w-2.5 h-2.5 rounded-full shrink-0"
+                                style={{ backgroundColor: style.hex }}
+                                title={`Designated Color: ${style.colorName}`}
+                              />
+                              <span
+                                className="text-[10px] px-1.5 py-0.2 rounded font-bold uppercase tracking-wider"
+                                style={{
+                                  backgroundColor: style.lightBg,
+                                  color: style.hex,
+                                }}
+                              >
+                                {style.colorName}
+                              </span>
+                            </div>
+                            <div className="text-xs text-slate-500 font-normal line-clamp-1">
+                              {college.name}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 px-4 sm:px-6 text-center">
+                        <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded border border-slate-200">
+                          {item.eventsCompleted} Completed
+                        </span>
+                      </td>
+
+                      <td className="py-3.5 px-4 sm:px-6 text-right">
+                        <span className="text-lg font-black text-blue-900 font-mono">
+                          {item.points}{' '}
+                          <span className="text-xs uppercase text-slate-500 font-sans font-semibold">pts</span>
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Completed Events in this Category */}
@@ -234,7 +358,7 @@ export const CategoryStandingView: React.FC<CategoryStandingViewProps> = ({
                           <span
                             className={`min-w-[24px] h-6 px-1.5 rounded flex items-center justify-center text-xs font-bold border ${badge.badgeClass}`}
                           >
-                            {badge.icon} {badge.label}
+                            {isEventsHidden ? '🔒' : badge.icon} {isEventsHidden ? 'Sealed' : badge.label}
                           </span>
                           <button
                             onClick={() => onOpenCollegeModal(res.collegeId)}
@@ -242,17 +366,16 @@ export const CategoryStandingView: React.FC<CategoryStandingViewProps> = ({
                           >
                             {res.collegeId}
                           </button>
-                          {isDQ && res.note && (
-                            <span className="text-[11px] text-rose-600 italic hidden sm:inline">
-                              ({res.note})
-                            </span>
-                          )}
                         </div>
 
                         <div>
-                          {isDQ ? (
+                          {isEventsHidden ? (
+                            <span className="text-xs font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                              Points Sealed
+                            </span>
+                          ) : isDQ ? (
                             <span className="text-xs font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded border border-rose-200">
-                              DQ — 0 pts
+                              DQ (0 pts)
                             </span>
                           ) : (
                             <span className="text-xs font-bold text-blue-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
@@ -268,13 +391,13 @@ export const CategoryStandingView: React.FC<CategoryStandingViewProps> = ({
             ))}
           </div>
         ) : (
-          <div className="p-8 rounded-xl border border-slate-200 bg-white text-center text-slate-500">
-            No completed events in {categoryMeta.name} recorded yet.
+          <div className="p-8 text-center rounded-xl border border-slate-200 bg-white text-slate-500 text-xs">
+            No completed {categoryMeta.name} events recorded yet.
           </div>
         )}
       </div>
 
-      {/* Upcoming Events in this Category */}
+      {/* Upcoming / Ongoing Events in this Category */}
       {upcomingEvents.length > 0 && (
         <div className="space-y-3 pt-4 border-t border-slate-200">
           <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">

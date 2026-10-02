@@ -9,9 +9,11 @@ import {
   Layers,
   Filter,
   RefreshCw,
+  Zap,
+  Swords,
 } from 'lucide-react';
 import { usePalakasan } from '../../context/PalakasanContext';
-import { Placement, PointTier } from '../../types';
+import { Placement, PointTier, DisciplinePointsConfig } from '../../types';
 
 export const AdminScoringView: React.FC = () => {
   const { currentPalakasan, updatePalakasan, events, updateEvent } = usePalakasan();
@@ -40,9 +42,20 @@ export const AdminScoringView: React.FC = () => {
     DQ: 0,
   };
 
+  const currentDiscipline = currentPalakasan?.scoringRules?.disciplinePoints || {
+    '1st': 10,
+    '2nd': 8,
+    '3rd': 6,
+    '4th': 4,
+    '5th': 2,
+    '6th': 0,
+    DQ: 0,
+  };
+
   const [majorPoints, setMajorPoints] = useState(currentMajor);
   const [minorPoints, setMinorPoints] = useState(currentMinor);
   const [specialPoints, setSpecialPoints] = useState(currentSpecial);
+  const [disciplinePoints, setDisciplinePoints] = useState<DisciplinePointsConfig>(currentDiscipline);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [filterTier, setFilterTier] = useState<'all' | 'special' | 'major' | 'minor'>('all');
@@ -58,6 +71,7 @@ export const AdminScoringView: React.FC = () => {
           majorPoints,
           minorPoints,
           specialPoints,
+          disciplinePoints,
         },
       });
       setSaveSuccess(true);
@@ -80,6 +94,10 @@ export const AdminScoringView: React.FC = () => {
 
   const applyMinorPreset = (p1: number, p2: number, p3: number, p4: number) => {
     setMinorPoints({ '1st': p1, '2nd': p2, '3rd': p3, '4th': p4, DQ: 0 });
+  };
+
+  const applyDisciplinePreset = (p1: number, p2: number, p3: number, p4: number, p5: number, p6: number) => {
+    setDisciplinePoints({ '1st': p1, '2nd': p2, '3rd': p3, '4th': p4, '5th': p5, '6th': p6, DQ: 0 });
   };
 
   const handleToggleEventTier = async (eventId: string, newTier: PointTier) => {
@@ -386,6 +404,90 @@ export const AdminScoringView: React.FC = () => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Multi-Category Disciplines Scoring Rule (Arnis, Swimming, Athletics) */}
+      <div className="bg-white rounded-2xl border-2 border-amber-200/80 p-5 sm:p-6 shadow-xs space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200 uppercase">
+                <Zap className="w-3 h-3 text-amber-700" />
+                Multi-Category Point System
+              </span>
+              <span className="text-[10px] font-mono font-bold text-amber-800">
+                10-8-6-4-2-0 Scale
+              </span>
+            </div>
+            <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+              <Swords className="w-4 h-4 text-amber-600" />
+              <span>Special Events Accumulated Points (e.g. Arnis, Swimming)</span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5 max-w-2xl leading-relaxed">
+              Arnis and Swimming competitions feature multiple categories (Anyo forms, Laban weight classes, 50m Free, Relay heats, etc.). Each category awards points to colleges. At the conclusion, all points won per college are <strong>accumulated</strong>, and the college with the highest score is declared the 1st Place overall champion.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+            <span className="text-[10px] text-slate-400 font-semibold">Presets:</span>
+            <button
+              type="button"
+              onClick={() => applyDisciplinePreset(10, 8, 6, 4, 2, 0)}
+              className="px-2.5 py-1 rounded text-[10px] font-bold bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200 transition-colors"
+            >
+              10-8-6-4-2-0 (Standard)
+            </button>
+            <button
+              type="button"
+              onClick={() => applyDisciplinePreset(12, 10, 8, 6, 4, 2)}
+              className="px-2.5 py-1 rounded text-[10px] font-bold bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200 transition-colors"
+            >
+              12-10-8-6-4-2 (Extended)
+            </button>
+          </div>
+        </div>
+
+        {/* Inputs for Category Placements */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5">
+          {(['1st', '2nd', '3rd', '4th', '5th', '6th', 'DQ'] as const).map(p => (
+            <div
+              key={p}
+              className="p-3 rounded-xl bg-amber-50/40 border border-amber-200/80 text-center space-y-1"
+            >
+              <span className="text-[11px] font-extrabold text-amber-950 block uppercase">
+                {p} {p === 'DQ' ? '' : 'Place'}
+              </span>
+              <span className="text-[9px] text-amber-700/80 block font-medium">
+                {p === '1st' ? 'Category Gold' : p === '2nd' ? 'Category Silver' : p === '3rd' ? 'Category Bronze' : p === 'DQ' ? 'Disqualified' : 'Placement'}
+              </span>
+              <div className="flex items-center justify-center gap-1 pt-1">
+                <input
+                  type="number"
+                  value={disciplinePoints[p]}
+                  onChange={e =>
+                    setDisciplinePoints(prev => ({ ...prev, [p]: Number(e.target.value) }))
+                  }
+                  className="w-14 text-center px-1.5 py-1 font-mono font-extrabold text-sm text-amber-950 bg-white border border-amber-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-amber-500"
+                />
+                <span className="text-[10px] font-bold text-amber-800">pts</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Informative Walkthrough */}
+        <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-slate-700">
+          <div className="space-y-0.5">
+            <span className="font-bold text-slate-900 block">Accumulated Score Example (Arnis Tournament):</span>
+            <p className="text-[11px] text-slate-600">
+              If CBIT wins 3 golds (30 pts) and 2 silvers (16 pts) = <strong>46 accumulated pts</strong>. If CESS-IDS accumulates 38 pts, CFMS 24 pts, and CELS 14 pts, CBIT is awarded <strong>1st Place ({specialPoints['1st']} Championship Points)</strong>, CESS-IDS <strong>2nd Place ({specialPoints['2nd']} pts)</strong>, CFMS <strong>3rd Place ({specialPoints['3rd']} pts)</strong>, and CELS <strong>4th Place ({specialPoints['4th']} pts)</strong>.
+            </p>
+          </div>
+          <div className="shrink-0 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-bold flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Automatic Accumulator in Results Console</span>
           </div>
         </div>
       </div>

@@ -212,6 +212,32 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
                   );
                 })}
               </div>
+
+              {/* Multi-Category Accumulated Point Breakdown */}
+              {event.accumulatedScores && (
+                <div className="mt-4 p-3 bg-purple-50/80 border border-purple-200 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-purple-900">
+                    <span className="flex items-center gap-1.5">
+                      <span>🥋/🏊 Multi-Category Breakdown</span>
+                      {event.subCategories && event.subCategories.length > 0 && (
+                        <span className="font-normal text-purple-700">({event.subCategories.length} categories)</span>
+                      )}
+                    </span>
+                    <span className="text-[10px] font-mono text-purple-600 font-normal">10-8-6-4-2-0 Point System</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 font-mono text-xs">
+                    {Object.entries(event.accumulatedScores).map(([colId, score]) => (
+                      <div key={colId} className="p-2 bg-white rounded-lg border border-purple-200/80 text-center">
+                        <span className="font-bold text-slate-800 block text-[11px]">{colId}</span>
+                        <span className="font-black text-purple-700 text-sm">{score} <span className="text-[10px] font-normal">pts</span></span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-purple-700 leading-tight">
+                    *Total points won across all sub-categories determine the final championship placement for this event.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>

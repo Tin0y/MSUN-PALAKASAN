@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   X,
   Trophy,
@@ -6,16 +6,30 @@ import {
   AlertTriangle,
   CheckCircle2,
   AlertCircle,
-  FileText,
   Save,
   ShieldCheck,
   RotateCcw,
   Loader2,
   Star,
   Layers,
+  Zap,
+  Swords,
+  Plus,
+  Trash2,
+  ArrowRight,
+  Calculator,
 } from 'lucide-react';
 import { usePalakasan } from '../../context/PalakasanContext';
-import { CollegeId, EventResultItem, PalakasanEvent, Placement, PointTier } from '../../types';
+import {
+  CollegeId,
+  EventResultItem,
+  PalakasanEvent,
+  Placement,
+  PointTier,
+  DisciplinePlacement,
+  SubCategoryDiscipline,
+  DisciplinePointsConfig,
+} from '../../types';
 import { COLLEGES, getEventPointsForPlacement } from '../../data/initialData';
 import { getCollegeBadgeStyle } from '../../utils/collegeTheme';
 
@@ -25,15 +39,51 @@ interface AdminDeclareWinnerModalProps {
   event: PalakasanEvent | null;
 }
 
+interface CategoryResultDraft {
+  id: string;
+  name: string;
+  placements: Record<CollegeId, DisciplinePlacement | ''>;
+}
+
+const DEFAULT_ARNIS_CATEGORIES = [
+  'Anyo Individual Men (Traditional)',
+  'Anyo Individual Women (Traditional)',
+  'Anyo Team Men (Synchronized)',
+  'Anyo Team Women (Synchronized)',
+  'Laban (Sparring) Bantamweight',
+  'Laban (Sparring) Featherweight',
+  'Laban (Sparring) Lightweight',
+  'Laban (Sparring) Open Weight',
+];
+
+const DEFAULT_SWIMMING_CATEGORIES = [
+  '50m Freestyle Men',
+  '50m Freestyle Women',
+  '100m Breaststroke Men',
+  '100m Breaststroke Women',
+  '50m Backstroke Men',
+  '50m Backstroke Women',
+  '50m Butterfly Men & Women',
+  '4x50m Medley / Freestyle Relay',
+];
+
 export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = ({
   isOpen,
   onClose,
   event,
 }) => {
-  const { currentPalakasan, declareOfficialResults, saveDraftResults, editOfficialResult, updateEvent } =
-    usePalakasan();
+  const {
+    currentPalakasan,
+    declareOfficialResults,
+    saveDraftResults,
+    editOfficialResult,
+    updateEvent,
+    currentAccount,
+    adminUserDisplay,
+  } = usePalakasan();
 
   const [selectedTier, setSelectedTier] = useState<PointTier>('major');
+  const [activeTab, setActiveTab] = useState<'standard' | 'multiCategory'>('standard');
   const [resultsMap, setResultsMap] = useState<Record<CollegeId, { placement: Placement; note: string }>>({
     'CBIT': { placement: '1st', note: '' },
     'CESS-IDS': { placement: '2nd', note: '' },
@@ -41,13 +91,79 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
     'CELS': { placement: '4th', note: '' },
   });
 
+  // Multi-Category State (Arnis, Swimming, Athletics, etc.)
+  const [categoryDrafts, setCategoryDrafts] = useState<CategoryResultDraft[]>([]);
+  const [newCategoryName, setNewCategoryName] = useState('');
+
   const [validationError, setValidationError] = useState<string | null>(null);
   const [showConfirmationSummary, setShowConfirmationSummary] = useState(false);
   const [editReason, setEditReason] = useState('');
-  const [committeeUser, setCommitteeUser] = useState('MSUN Sports & Cultural Affairs Committee');
+  const [committeeUser, setCommitteeUser] = useState(() => adminUserDisplay || 'MSUN Tournament Committee');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const isAlreadyOfficial = event?.resultStatus === 'official';
+  // ALL HOOKS UNCONDITIONALLY CALLED AT COMPONENT ROOT BEFORE ANY EARLY RETURN
+  const participating = useMemo(() => {
+    return event?.participatingColleges || ['CBIT', 'CESS-IDS', 'CFMS', 'CELS'];
+  }, [event?.participatingColleges]);
+
+  const disciplinePointsConfig: DisciplinePointsConfig = useMemo(() => {
+    return (
+      currentPalakasan?.scoringRules?.disciplinePoints || {
+        '1st': 10,
+        '2nd': 8,
+        '3rd': 6,
+        '4th': 4,
+        '5th': 2,
+        '6th': 0,
+        DQ: 0,
+      }
+    );
+  }, [currentPalakasan?.scoringRules?.disciplinePoints]);
+
+  // Calculate accumulated score per college from categories
+  const accumulatedScores = useMemo(() => {
+    const scores: Record<CollegeId, number> = {
+      'CBIT': 0,
+      'CESS-IDS': 0,
+      'CFMS': 0,
+      'CELS': 0,
+    };
+
+    const goldCounts: Record<CollegeId, number> = {
+      'CBIT': 0,
+      'CESS-IDS': 0,
+      'CFMS': 0,
+      'CELS': 0,
+    };
+
+    categoryDrafts.forEach(cat => {
+      participating.forEach(colId => {
+        const plc = cat.placements[colId];
+        if (plc) {
+          const pts = disciplinePointsConfig[plc] ?? 0;
+          scores[colId] = (scores[colId] || 0) + pts;
+          if (plc === '1st') {
+            goldCounts[colId] = (goldCounts[colId] || 0) + 1;
+          }
+        }
+      });
+    });
+
+    return { scores, goldCounts };
+  }, [categoryDrafts, participating, disciplinePointsConfig]);
+
+  // Ranked colleges by accumulated points (with gold count as tie-breaker)
+  const rankedColleges = useMemo(() => {
+    return [...participating].sort((a, b) => {
+      const scoreA = accumulatedScores.scores[a] || 0;
+      const scoreB = accumulatedScores.scores[b] || 0;
+      if (scoreB !== scoreA) return scoreB - scoreA;
+      // Tie breaker: golds
+      const goldsA = accumulatedScores.goldCounts[a] || 0;
+      const goldsB = accumulatedScores.goldCounts[b] || 0;
+      return goldsB - goldsA;
+    });
+  }, [participating, accumulatedScores]);
 
   useEffect(() => {
     if (!event) return;
@@ -57,6 +173,15 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
       event.pointTier ||
       (event.category === 'special' ? 'special' : event.isMajor || event.category === 'sports' ? 'major' : 'minor');
     setSelectedTier(initialTier);
+
+    // Initial Tab Selection: Default to multiCategory for Arnis and Swimming
+    const shouldBeMulti =
+      event.isMultiCategoryEvent ||
+      event.eventName.toLowerCase().includes('arnis') ||
+      event.eventName.toLowerCase().includes('swimming') ||
+      Boolean(event.subCategories && event.subCategories.length > 0);
+
+    setActiveTab(shouldBeMulti ? 'multiCategory' : 'standard');
 
     // Pre-populate if results already exist
     const newMap: Record<CollegeId, { placement: Placement; note: string }> = {
@@ -74,7 +199,6 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
         };
       });
     } else {
-      // Initial placement suggestions based on participating colleges
       const standardPlaces: Placement[] = ['1st', '2nd', '3rd', '4th'];
       event.participatingColleges.forEach((colId, idx) => {
         newMap[colId] = {
@@ -83,16 +207,74 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
         };
       });
     }
-
     setResultsMap(newMap);
+
+    // Load or generate sub-category drafts
+    if (event.subCategories && event.subCategories.length > 0) {
+      const loaded: CategoryResultDraft[] = event.subCategories.map((sub, idx) => {
+        const plcMap: Record<CollegeId, DisciplinePlacement | ''> = {
+          'CBIT': '',
+          'CESS-IDS': '',
+          'CFMS': '',
+          'CELS': '',
+        };
+        sub.results?.forEach(r => {
+          plcMap[r.collegeId] = r.placement;
+        });
+        return {
+          id: sub.id || `sub-${idx}-${Date.now()}`,
+          name: sub.name,
+          placements: plcMap,
+        };
+      });
+      setCategoryDrafts(loaded);
+    } else if (event.eventName.toLowerCase().includes('arnis')) {
+      const defaults: CategoryResultDraft[] = DEFAULT_ARNIS_CATEGORIES.map((name, idx) => ({
+        id: `arnis-cat-${idx}`,
+        name,
+        placements: {
+          'CBIT': '',
+          'CESS-IDS': '',
+          'CFMS': '',
+          'CELS': '',
+        },
+      }));
+      setCategoryDrafts(defaults);
+    } else if (event.eventName.toLowerCase().includes('swimming')) {
+      const defaults: CategoryResultDraft[] = DEFAULT_SWIMMING_CATEGORIES.map((name, idx) => ({
+        id: `swim-cat-${idx}`,
+        name,
+        placements: {
+          'CBIT': '',
+          'CESS-IDS': '',
+          'CFMS': '',
+          'CELS': '',
+        },
+      }));
+      setCategoryDrafts(defaults);
+    } else {
+      setCategoryDrafts([]);
+    }
+
     setValidationError(null);
     setShowConfirmationSummary(false);
     setEditReason('');
-  }, [event, isOpen]);
+    if (adminUserDisplay) {
+      setCommitteeUser(adminUserDisplay);
+    }
+  }, [event, isOpen, adminUserDisplay]);
 
+  // ALL HOOKS EXECUTED; SAFE TO RETURN NULL IF MODAL IS NOT OPEN
   if (!isOpen || !event) return null;
 
-  const participating = event.participatingColleges;
+  const isAlreadyOfficial = event.resultStatus === 'official';
+
+  const isArnisOrSwimming = Boolean(
+    event.eventName.toLowerCase().includes('arnis') ||
+      event.eventName.toLowerCase().includes('swimming') ||
+      event.isMultiCategoryEvent ||
+      (event.subCategories && event.subCategories.length > 0)
+  );
 
   const handlePlacementChange = (colId: CollegeId, placement: Placement) => {
     setResultsMap(prev => ({
@@ -109,13 +291,92 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
     }));
   };
 
-  // Resolve points for a placement based on the currently selected tier and tournament rules
+  // Resolve championship points for a placement
   const getPoints = (placement: Placement): number => {
     return getEventPointsForPlacement(
       placement,
       { ...event, pointTier: selectedTier },
       currentPalakasan?.scoringRules
     );
+  };
+
+  // Sub-Category handlers
+  const handleCategoryPlacementChange = (
+    catId: string,
+    colId: CollegeId,
+    placement: DisciplinePlacement | ''
+  ) => {
+    setCategoryDrafts(prev =>
+      prev.map(cat =>
+        cat.id === catId
+          ? {
+              ...cat,
+              placements: {
+                ...cat.placements,
+                [colId]: placement,
+              },
+            }
+          : cat
+      )
+    );
+    setValidationError(null);
+  };
+
+  const handleAddCategory = () => {
+    const trimmed = newCategoryName.trim();
+    if (!trimmed) return;
+    const newDraft: CategoryResultDraft = {
+      id: `custom-cat-${Date.now()}`,
+      name: trimmed,
+      placements: {
+        'CBIT': '',
+        'CESS-IDS': '',
+        'CFMS': '',
+        'CELS': '',
+      },
+    };
+    setCategoryDrafts(prev => [...prev, newDraft]);
+    setNewCategoryName('');
+  };
+
+  const handleRemoveCategory = (catId: string) => {
+    setCategoryDrafts(prev => prev.filter(c => c.id !== catId));
+  };
+
+  // Apply the accumulated rankings to final championship placements
+  const handleApplyAccumulatedRankings = () => {
+    const standardPlaces: Placement[] = ['1st', '2nd', '3rd', '4th'];
+    const updatedMap = { ...resultsMap };
+
+    rankedColleges.forEach((colId, idx) => {
+      const plc = standardPlaces[idx] || '4th';
+      const pts = accumulatedScores.scores[colId] || 0;
+      const golds = accumulatedScores.goldCounts[colId] || 0;
+      updatedMap[colId] = {
+        placement: plc,
+        note: `Accumulated ${pts} category pts (${golds} 1st Places) across ${categoryDrafts.length} categories.`,
+      };
+    });
+
+    setResultsMap(updatedMap);
+    setSelectedTier('special'); // Special tier for Arnis/Swimming multi-event
+    setActiveTab('standard');
+  };
+
+  // Compile subCategories for Firestore persistence
+  const getCompiledSubCategories = (): SubCategoryDiscipline[] => {
+    return categoryDrafts.map(cat => ({
+      id: cat.id,
+      name: cat.name,
+      results: participating.map(colId => {
+        const plc = cat.placements[colId] || ('6th' as DisciplinePlacement);
+        return {
+          collegeId: colId,
+          placement: plc as DisciplinePlacement,
+          points: plc ? (disciplinePointsConfig[plc] ?? 0) : 0,
+        };
+      }),
+    }));
   };
 
   // Strict Validation Rules Check
@@ -157,6 +418,11 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
   };
 
   const handleOpenConfirmation = () => {
+    // If user is currently in multiCategory tab, apply rankings first before opening
+    if (activeTab === 'multiCategory' && categoryDrafts.length > 0) {
+      handleApplyAccumulatedRankings();
+    }
+
     const check = validateForm();
     if (!check.valid) {
       setValidationError(check.error || 'Validation error');
@@ -167,6 +433,10 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
   };
 
   const handleSaveDraft = async () => {
+    if (activeTab === 'multiCategory' && categoryDrafts.length > 0) {
+      handleApplyAccumulatedRankings();
+    }
+
     const check = validateForm();
     if (!check.valid) {
       setValidationError(check.error || 'Validation error');
@@ -176,13 +446,19 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
     setIsSubmitting(true);
     setValidationError(null);
     try {
-      if (selectedTier !== event.pointTier) {
-        await updateEvent(
-          event.id,
-          { pointTier: selectedTier, isMajor: selectedTier === 'major' || selectedTier === 'special' },
-          committeeUser
-        );
-      }
+      const compiledSubs = getCompiledSubCategories();
+      await updateEvent(
+        event.id,
+        {
+          pointTier: selectedTier,
+          isMajor: selectedTier === 'major' || selectedTier === 'special',
+          isMultiCategoryEvent: categoryDrafts.length > 0 || isArnisOrSwimming,
+          subCategories: compiledSubs,
+          accumulatedScores: accumulatedScores.scores,
+        },
+        committeeUser
+      );
+
       const res = await saveDraftResults(event.id, check.results, committeeUser);
       if (!res.success) {
         setValidationError(res.error || 'Failed to save draft.');
@@ -207,14 +483,20 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
     setIsSubmitting(true);
     setValidationError(null);
     try {
-      // If tier was updated in this modal, update the event metadata first
-      if (selectedTier !== event.pointTier) {
-        await updateEvent(
-          event.id,
-          { pointTier: selectedTier, isMajor: selectedTier === 'major' || selectedTier === 'special' },
-          committeeUser
-        );
-      }
+      const compiledSubs = getCompiledSubCategories();
+
+      // Update event with subCategories and accumulated scores metadata
+      await updateEvent(
+        event.id,
+        {
+          pointTier: selectedTier,
+          isMajor: selectedTier === 'major' || selectedTier === 'special',
+          isMultiCategoryEvent: categoryDrafts.length > 0 || isArnisOrSwimming,
+          subCategories: compiledSubs,
+          accumulatedScores: accumulatedScores.scores,
+        },
+        committeeUser
+      );
 
       let res: { success: boolean; error?: string };
       if (isAlreadyOfficial) {
@@ -249,7 +531,6 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
     };
   });
 
-  // Sort by ranking for summary
   const placementSortOrder: Record<Placement, number> = {
     '1st': 1,
     '2nd': 2,
@@ -259,17 +540,16 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
   };
   compiledResults.sort((a, b) => placementSortOrder[a.placement] - placementSortOrder[b.placement]);
 
-  // Point scale values for preview
   const p1 = getPoints('1st');
   const p2 = getPoints('2nd');
   const p3 = getPoints('3rd');
   const p4 = getPoints('4th');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-xl w-full max-h-[90vh] flex flex-col my-auto overflow-hidden animate-scaleIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-3xl w-full max-h-[92vh] flex flex-col my-auto overflow-hidden animate-scaleIn">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-blue-50/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-blue-50/80 via-indigo-50/40 to-purple-50/80">
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-blue-700">
@@ -285,23 +565,69 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
               >
                 {isAlreadyOfficial ? 'Official Certified' : 'Uncertified Event'}
               </span>
+              {isArnisOrSwimming && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200 flex items-center gap-1">
+                  <Star className="w-3 h-3 text-purple-600 fill-purple-600" />
+                  <span>Special Multi-Category Meet</span>
+                </span>
+              )}
             </div>
-            <h3 className="text-base font-extrabold text-slate-900 line-clamp-1">
+            <h3 className="text-base font-extrabold text-slate-900 line-clamp-1 mt-0.5">
               {isAlreadyOfficial ? 'Edit Official Results: ' : 'Enter Results & Declare Winner: '}
               {event.eventName}
             </h3>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
+        {/* View Mode Tabs (Standard vs Multi-Category Accumulator) */}
+        {!showConfirmationSummary && (
+          <div className="flex items-center gap-1 px-6 pt-3 pb-1 border-b border-slate-100 bg-slate-50/80 text-xs">
+            <button
+              type="button"
+              onClick={() => setActiveTab('multiCategory')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                activeTab === 'multiCategory'
+                  ? 'bg-purple-600 text-white shadow-xs'
+                  : 'text-purple-900 hover:bg-purple-50 font-semibold'
+              }`}
+            >
+              <Swords className="w-3.5 h-3.5" />
+              <span>Multi-Category Accumulator (10-8-6-4-2-0)</span>
+              {categoryDrafts.length > 0 && (
+                <span
+                  className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                    activeTab === 'multiCategory' ? 'bg-purple-700 text-white' : 'bg-purple-100 text-purple-800'
+                  }`}
+                >
+                  {categoryDrafts.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('standard')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                activeTab === 'standard'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:bg-slate-100 font-semibold'
+              }`}
+            >
+              <Trophy className="w-3.5 h-3.5" />
+              <span>Final Championship Placements</span>
+            </button>
+          </div>
+        )}
+
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5 text-xs">
-          {/* Official Result Warning Banner if already official */}
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5 text-xs">
+          {/* Official Result Warning Banner */}
           {isAlreadyOfficial && (
             <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-2.5 text-amber-900">
               <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600 mt-0.5" />
@@ -332,8 +658,223 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
             </div>
           )}
 
-          {/* View 1: Placements Input Grid */}
-          {!showConfirmationSummary ? (
+          {/* ========================================================================= */}
+          {/* TAB 1: MULTI-CATEGORY ACCUMULATOR (ARNIS / SWIMMING / ATHLETICS) */}
+          {/* ========================================================================= */}
+          {!showConfirmationSummary && activeTab === 'multiCategory' && (
+            <div className="space-y-5">
+              {/* Scoring Logic Explainer Banner */}
+              <div className="p-4 rounded-xl bg-purple-50/90 border border-purple-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-bold text-purple-950">
+                    <Zap className="w-4 h-4 text-purple-700" />
+                    <span>Special Multi-Category Point Accumulator</span>
+                  </div>
+                  <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-800">
+                    10-8-6-4-2-0 Scale
+                  </span>
+                </div>
+                <p className="text-[11px] text-purple-900 leading-relaxed">
+                  Competitions like <strong>Arnis</strong> and <strong>Swimming</strong> have many categories (weight classes, strokes, and relays). In each category, colleges earn points: <strong>1st: 10 pts, 2nd: 8 pts, 3rd: 6 pts, 4th: 4 pts, 5th: 2 pts, 6th: 0 pts</strong>. All points won per college are accumulated; the college with the highest total is awarded <strong>1st Place Champion ({p1} pts)</strong>, second highest <strong>2nd Place ({p2} pts)</strong>, and so on.
+                </p>
+              </div>
+
+              {/* LIVE ACCUMULATED SCOREBOARD CARD */}
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-950 to-purple-950 text-white shadow-md space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-indigo-900/60 pb-2">
+                  <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-purple-300">
+                    <Calculator className="w-4 h-4 text-amber-400" />
+                    <span>Live Accumulated College Standings</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleApplyAccumulatedRankings}
+                    className="flex items-center gap-1.5 px-3 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-lg text-xs font-black shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
+                  >
+                    <span>Apply to Championship Results</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+                  {rankedColleges.map((colId, index) => {
+                    const score = accumulatedScores.scores[colId] || 0;
+                    const golds = accumulatedScores.goldCounts[colId] || 0;
+                    const placeName = index === 0 ? '1st' : index === 1 ? '2nd' : index === 2 ? '3rd' : '4th';
+                    const col = COLLEGES.find(c => c.id === colId);
+
+                    return (
+                      <div
+                        key={colId}
+                        className={`p-3 rounded-xl border flex flex-col justify-between ${
+                          index === 0
+                            ? 'bg-amber-500/15 border-amber-400/40 text-amber-200'
+                            : index === 1
+                            ? 'bg-slate-300/10 border-slate-300/30 text-slate-200'
+                            : index === 2
+                            ? 'bg-amber-700/15 border-amber-600/30 text-amber-300'
+                            : 'bg-white/5 border-white/10 text-slate-400'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-extrabold text-[11px] px-1.5 py-0.5 rounded bg-black/30">
+                            {placeName} Place
+                          </span>
+                          <span className="font-bold text-xs text-white">{col?.acronym}</span>
+                        </div>
+                        <div className="mt-2">
+                          <div className="text-2xl font-black font-mono text-white">
+                            {score} <span className="text-xs font-normal text-slate-300">pts</span>
+                          </div>
+                          <div className="text-[10px] text-slate-300 mt-0.5">
+                            {golds} Golds • {getPoints(placeName as Placement)} Champ Pts
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Categories Management & Input */}
+              <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h4 className="font-bold text-slate-900 uppercase tracking-wider text-xs flex items-center gap-1.5">
+                      <span>Event Categories & Disciplines ({categoryDrafts.length})</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      Select college placements for each heat or weight class. Points update instantly.
+                    </p>
+                  </div>
+
+                  {/* Add New Category Quick Input */}
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={newCategoryName}
+                      onChange={e => setNewCategoryName(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddCategory();
+                        }
+                      }}
+                      placeholder="Add sub-category / event..."
+                      className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 w-48 sm:w-56"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCategory}
+                      className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 shrink-0 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sub-Category Cards */}
+                <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1">
+                  {categoryDrafts.map((cat, catIdx) => (
+                    <div
+                      key={cat.id}
+                      className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2 hover:border-slate-300 transition-colors"
+                    >
+                      <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
+                        <span className="font-extrabold text-xs text-slate-900 flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-purple-100 text-purple-800 flex items-center justify-center font-mono text-[10px]">
+                            {catIdx + 1}
+                          </span>
+                          <span>{cat.name}</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCategory(cat.id)}
+                          className="text-slate-400 hover:text-red-600 p-1 rounded transition-colors cursor-pointer"
+                          title="Remove category"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* College Placements Grid for this Category */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-1">
+                        {participating.map(colId => {
+                          const col = COLLEGES.find(c => c.id === colId);
+                          const currentPlc = cat.placements[colId] || '';
+                          const earnedPts = currentPlc ? disciplinePointsConfig[currentPlc] ?? 0 : 0;
+                          const badge = getCollegeBadgeStyle(colId);
+
+                          return (
+                            <div
+                              key={colId}
+                              className="p-2 bg-white rounded-lg border border-slate-200 flex items-center justify-between gap-1.5 shadow-2xs"
+                            >
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${badge.bg} ${badge.text}`}
+                                >
+                                  {col?.acronym}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-1.5">
+                                <select
+                                  value={currentPlc}
+                                  onChange={e =>
+                                    handleCategoryPlacementChange(
+                                      cat.id,
+                                      colId,
+                                      e.target.value as DisciplinePlacement | ''
+                                    )
+                                  }
+                                  className="text-[11px] font-semibold py-1 px-1.5 bg-slate-50 border border-slate-300 rounded-md focus:ring-1 focus:ring-purple-500 cursor-pointer"
+                                >
+                                  <option value="">Unplaced (0)</option>
+                                  <option value="1st">1st (10 pts)</option>
+                                  <option value="2nd">8 pts</option>
+                                  <option value="3rd">6 pts</option>
+                                  <option value="4th">4 pts</option>
+                                  <option value="5th">2 pts</option>
+                                  <option value="6th">0 pts</option>
+                                  <option value="DQ">DQ (0 pts)</option>
+                                </select>
+
+                                <span
+                                  className={`font-mono text-[10px] font-extrabold px-1.5 py-0.5 rounded ${
+                                    earnedPts > 0
+                                      ? 'bg-emerald-100 text-emerald-800'
+                                      : 'bg-slate-100 text-slate-500'
+                                  }`}
+                                >
+                                  +{earnedPts}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+
+                  {categoryDrafts.length === 0 && (
+                    <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-slate-500 space-y-2">
+                      <p className="font-semibold text-xs text-slate-700">No Categories Added Yet</p>
+                      <p className="text-[11px]">
+                        Add sub-categories (e.g. Anyo Traditional, Laban Bantamweight, 50m Free) using the input above.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB 2: STANDARD PLACEMENTS VIEW */}
+          {/* ========================================================================= */}
+          {!showConfirmationSummary && activeTab === 'standard' && (
             <div className="space-y-4">
               {/* Dynamic Point System Banner & Tier Selector */}
               <div
@@ -350,7 +891,7 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
                     {selectedTier === 'special' ? (
                       <>
                         <Star className="w-4 h-4 text-purple-700 fill-purple-700" />
-                        <span className="text-purple-900">⭐ Special Events Points System Applied</span>
+                        <span className="text-purple-900">⭐ Special Events Championship Scale Applied</span>
                       </>
                     ) : selectedTier === 'major' ? (
                       <>
@@ -367,7 +908,7 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
 
                   {/* Tier Override Dropdown */}
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-slate-500 font-semibold">Point Tier:</span>
+                    <span className="text-[10px] text-slate-500 font-semibold">Championship Tier:</span>
                     <select
                       value={selectedTier}
                       onChange={e => setSelectedTier(e.target.value as PointTier)}
@@ -386,9 +927,21 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
               </div>
 
               <div className="space-y-3">
-                <h4 className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">
-                  Participating Colleges ({participating.length})
-                </h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-slate-700 uppercase tracking-wider text-[10px]">
+                    Participating Colleges & Final Placements ({participating.length})
+                  </h4>
+                  {categoryDrafts.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('multiCategory')}
+                      className="text-[11px] font-bold text-purple-700 hover:text-purple-900 flex items-center gap-1 cursor-pointer"
+                    >
+                      <Calculator className="w-3.5 h-3.5" />
+                      <span>Re-calculate from Category Points</span>
+                    </button>
+                  )}
+                </div>
 
                 <div className="space-y-2.5">
                   {participating.map(colId => {
@@ -414,9 +967,9 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
                             </span>
                           </div>
 
-                          {/* Points Display (Dynamic Read-Only) */}
+                          {/* Championship Points Display */}
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[11px] text-slate-500 font-medium">Points:</span>
+                            <span className="text-[11px] text-slate-500 font-medium">Championship Points:</span>
                             <span
                               className={`font-mono font-bold text-xs px-2.5 py-0.5 rounded border ${
                                 selectedTier === 'special'
@@ -449,33 +1002,33 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
                                       : plc === 'DQ'
                                       ? 'bg-red-600 text-white shadow-xs ring-2 ring-red-400'
                                       : 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-400'
-                                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                                 }`}
                               >
                                 <span>{plc}</span>
-                                <span className="text-[9px] font-normal opacity-80">
-                                  {plc === 'DQ' ? '0 pts' : `${getPoints(plc)} pts`}
+                                <span className="text-[10px] font-normal opacity-85">
+                                  {plc === '1st'
+                                    ? 'Gold'
+                                    : plc === '2nd'
+                                    ? 'Silver'
+                                    : plc === '3rd'
+                                    ? 'Bronze'
+                                    : plc === 'DQ'
+                                    ? 'DQ'
+                                    : '4th'}
                                 </span>
                               </button>
                             );
                           })}
                         </div>
 
-                        {/* Disqualification / Audit Note */}
+                        {/* Note Input */}
                         <input
                           type="text"
                           value={current.note}
                           onChange={e => handleNoteChange(colId, e.target.value)}
-                          placeholder={
-                            current.placement === 'DQ'
-                              ? 'Required: Specify disqualification reason...'
-                              : 'Optional: Score remarks, time or set scores...'
-                          }
-                          className={`w-full px-3 py-1.5 text-xs rounded-lg border ${
-                            current.placement === 'DQ' && !current.note
-                              ? 'border-red-300 bg-red-50/50'
-                              : 'border-slate-200 bg-slate-50/50'
-                          }`}
+                          placeholder="Optional audit note or accumulated category score record..."
+                          className="w-full px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 text-[11px] focus:bg-white"
                         />
                       </div>
                     );
@@ -483,70 +1036,95 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
                 </div>
               </div>
             </div>
-          ) : (
-            /* View 2: Confirmation Summary */
-            <div className="space-y-4 animate-fadeIn">
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl space-y-3">
-                <div className="text-center space-y-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700">
-                    Mindanao State University at Naawan
-                  </span>
-                  <h4 className="text-base font-extrabold text-blue-950">
-                    Official Event Result Declaration
-                  </h4>
-                  <p className="text-xs text-slate-600">
-                    Event: <span className="font-bold text-slate-900">{event.eventName}</span> | Tier:{' '}
-                    <span className="font-bold capitalize text-purple-700">
-                      {selectedTier === 'special' ? '⭐ Special Events System' : selectedTier === 'major' ? 'Major Event' : 'Minor Event'}
-                    </span>
-                  </p>
+          )}
+
+          {/* ========================================================================= */}
+          {/* CONFIRMATION SUMMARY STEP */}
+          {/* ========================================================================= */}
+          {showConfirmationSummary && (
+            <div className="space-y-4">
+              <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-2xl space-y-2">
+                <div className="flex items-center gap-2 text-emerald-900 font-extrabold text-sm">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  <span>Review Final Official Results & Point Allocation</span>
                 </div>
+                <p className="text-emerald-800 text-xs">
+                  Upon confirmation, official point transactions will be immutably recorded for this PALAKASAN edition.
+                </p>
+              </div>
 
-                <div className="bg-white rounded-xl border border-blue-100 divide-y divide-slate-100 p-2 text-xs">
-                  {compiledResults.map(res => {
-                    const badge = getCollegeBadgeStyle(res.collegeId);
-                    return (
-                      <div key={res.collegeId} className="py-2.5 px-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                          <span
-                            className={`w-8 text-center py-0.5 rounded text-xs font-black ${
-                              res.placement === '1st'
-                                ? 'bg-amber-400 text-white'
-                                : res.placement === '2nd'
-                                ? 'bg-slate-300 text-slate-800'
-                                : res.placement === '3rd'
-                                ? 'bg-amber-700 text-white'
-                                : res.placement === 'DQ'
-                                ? 'bg-red-500 text-white'
-                                : 'bg-blue-100 text-blue-800'
-                            }`}
-                          >
-                            {res.placement}
-                          </span>
-                          <span
-                            className={`px-2 py-0.5 rounded text-xs font-bold ${badge.bg} ${badge.text}`}
-                          >
-                            {res.collegeId}
-                          </span>
-                          <span className="font-semibold text-slate-700">{res.college.name}</span>
-                        </div>
-
-                        <div className="text-right">
-                          <span className="font-black text-sm text-blue-950 font-mono">
-                            {res.points}
-                          </span>
-                          <span className="text-[10px] text-slate-400 ml-1">Points</span>
-                          {res.note && (
-                            <p className="text-[10px] text-slate-400 max-w-xs truncate">{res.note}</p>
-                          )}
-                        </div>
+              {categoryDrafts.length > 0 && (
+                <div className="p-3.5 bg-purple-50 border border-purple-200 rounded-xl space-y-1 text-xs">
+                  <div className="flex items-center justify-between font-bold text-purple-900">
+                    <span>Multi-Category Accumulator Summary:</span>
+                    <span>{categoryDrafts.length} Categories Scored</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2 pt-1 font-mono text-[11px]">
+                    {rankedColleges.map(colId => (
+                      <div key={colId} className="p-1.5 bg-white rounded border border-purple-200 text-center">
+                        <span className="font-bold text-slate-900 block">{colId}</span>
+                        <span className="text-purple-700 font-bold">{accumulatedScores.scores[colId] || 0} category pts</span>
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
+              )}
 
-                <div className="text-[11px] text-blue-900/80 bg-blue-100/50 p-2.5 rounded-lg">
-                  Confirming this declaration will immediately finalize results, award authoritative points to the college ledgers, and re-rank the overall university standings.
+              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-100 text-slate-600 uppercase font-bold text-[10px]">
+                    <tr>
+                      <th className="py-2.5 px-3">Placement</th>
+                      <th className="py-2.5 px-3">College</th>
+                      <th className="py-2.5 px-3 text-right">Championship Points</th>
+                      <th className="py-2.5 px-3">Remarks / Score Record</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {compiledResults.map(r => {
+                      const badge = getCollegeBadgeStyle(r.collegeId);
+                      return (
+                        <tr key={r.collegeId} className="hover:bg-slate-50/80">
+                          <td className="py-2.5 px-3 font-extrabold text-slate-900">
+                            {r.placement === '1st' && '🥇 1st Place (Champion)'}
+                            {r.placement === '2nd' && '🥈 2nd Place'}
+                            {r.placement === '3rd' && '🥉 3rd Place'}
+                            {r.placement === '4th' && '🎖️ 4th Place'}
+                            {r.placement === 'DQ' && '❌ Disqualified'}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span
+                              className={`px-2 py-0.5 rounded font-bold ${badge.bg} ${badge.text}`}
+                            >
+                              {r.college.acronym}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono font-black text-slate-900 text-sm">
+                            +{r.points} pts
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-500 text-[11px]">
+                            {r.note || '—'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Committee Sign-Off */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Authorizing Official / Sign-Off
+                </label>
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
+                  <input
+                    type="text"
+                    value={committeeUser}
+                    onChange={e => setCommitteeUser(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-800"
+                  />
                 </div>
               </div>
             </div>
@@ -560,7 +1138,7 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-800 rounded-lg"
+                className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-800 rounded-lg cursor-pointer"
               >
                 Cancel
               </button>
@@ -577,7 +1155,7 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
                   ) : (
                     <Save className="w-3.5 h-3.5" />
                   )}
-                  <span>Save as Draft</span>
+                  <span>Save Draft</span>
                 </button>
 
                 <button
@@ -587,7 +1165,11 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
                   className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer disabled:cursor-not-allowed"
                 >
                   <Trophy className="w-3.5 h-3.5 text-amber-300" />
-                  <span>Declare Winner...</span>
+                  <span>
+                    {activeTab === 'multiCategory'
+                      ? 'Calculate & Certify Placements...'
+                      : 'Declare Winner...'}
+                  </span>
                 </button>
               </div>
             </>

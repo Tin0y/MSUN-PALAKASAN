@@ -134,6 +134,7 @@ export const DEFAULT_PALAKASAN_2026: PalakasanEdition = {
     majorPoints: { '1st': 50, '2nd': 40, '3rd': 30, '4th': 20, DQ: 0 },
     minorPoints: { '1st': 30, '2nd': 20, '3rd': 15, '4th': 10, DQ: 0 },
     specialPoints: { '1st': 60, '2nd': 45, '3rd': 30, '4th': 20, DQ: 0 },
+    disciplinePoints: { '1st': 10, '2nd': 8, '3rd': 6, '4th': 4, '5th': 2, '6th': 0, DQ: 0 },
   },
   competitionRules: {
     availableFormats: [
@@ -150,6 +151,18 @@ export const DEFAULT_PALAKASAN_2026: PalakasanEdition = {
       'score-difference',
       'total-score',
     ],
+  },
+  rankingsVisibility: {
+    hideAllRankings: false,
+    hideOverallStandings: false,
+    hideEventResults: false,
+    hideCategoryRankings: {
+      sports: false,
+      cultural: false,
+      literary: false,
+      special: false,
+    },
+    thrillMessage: 'Official rankings are currently sealed by the Tournament Committee. Final champions will be unveiled at the Grand Closing & Awarding Ceremony!',
   },
   createdAt: '2026-09-01T00:00:00.000Z',
   updatedAt: '2026-09-18T00:00:00.000Z',
@@ -179,6 +192,7 @@ export const DEFAULT_PALAKASAN_2025: PalakasanEdition = {
     majorPoints: { '1st': 50, '2nd': 40, '3rd': 30, '4th': 20, DQ: 0 },
     minorPoints: { '1st': 30, '2nd': 20, '3rd': 15, '4th': 10, DQ: 0 },
     specialPoints: { '1st': 60, '2nd': 45, '3rd': 30, '4th': 20, DQ: 0 },
+    disciplinePoints: { '1st': 10, '2nd': 8, '3rd': 6, '4th': 4, '5th': 2, '6th': 0, DQ: 0 },
   },
   competitionRules: {
     availableFormats: ['double-elimination', 'round-robin', 'single-elimination'],
@@ -356,26 +370,19 @@ export const HISTORICAL_2025_TRANSACTIONS: PointTransaction[] = [
 ];
 
 /**
- * Ensures that initial seed data exists in Firestore.
- * If collections are empty, it seeds Palakasans, Colleges, Categories, Venues, Events,
- * Point Transactions, and Activity Logs.
+ * Ensures that foundational collegiate data exists in Firestore.
+ * Does NOT auto-seed dummy 2025-2027 tournament editions or results,
+ * providing a completely clean canvas for user-created tournaments.
  */
 export async function initializeFirestoreDatabase(): Promise<void> {
   try {
-    // 1. Check if palakasans collection exists
-    const palakasansRef = collection(db, 'palakasans');
-    const snap = await getDocs(palakasansRef);
+    // Check if colleges collection exists (foundational university units)
+    const collegesRef = collection(db, 'colleges');
+    const snap = await getDocs(collegesRef);
 
     if (snap.empty) {
-      console.log('Seeding initial Firestore database...');
+      console.log('Seeding foundational colleges, categories, and venues...');
       const batch = writeBatch(db);
-
-      // Seed Palakasan Editions
-      const p2026Doc = doc(db, 'palakasans', DEFAULT_PALAKASAN_2026.id);
-      batch.set(p2026Doc, cleanForFirestore(DEFAULT_PALAKASAN_2026));
-
-      const p2025Doc = doc(db, 'palakasans', DEFAULT_PALAKASAN_2025.id);
-      batch.set(p2025Doc, cleanForFirestore(DEFAULT_PALAKASAN_2025));
 
       // Seed Colleges
       for (const col of INITIAL_COLLEGES) {
@@ -416,68 +423,11 @@ export async function initializeFirestoreDatabase(): Promise<void> {
         );
       }
 
-      // Seed Initial Events linked to palakasan-2026
-      const initialTransactions: PointTransaction[] = [];
-      for (const ev of INITIAL_EVENTS) {
-        const evDoc = doc(db, 'events', ev.id);
-        const eventWithPalakasan: PalakasanEvent = {
-          ...ev,
-          palakasanId: 'palakasan-2026',
-          isMajor: ev.category === 'sports' || ev.category === 'special',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        batch.set(evDoc, cleanForFirestore(eventWithPalakasan));
-
-        // If event is already completed and official, create its point transactions
-        if (ev.status === 'completed' && ev.resultStatus === 'official' && ev.results) {
-          for (const res of ev.results) {
-            const transId = `pt-${ev.id}-${res.collegeId}`;
-            const trans: PointTransaction = {
-              id: transId,
-              palakasanId: 'palakasan-2026',
-              collegeId: res.collegeId,
-              eventId: ev.id,
-              eventName: ev.eventName,
-              category: ev.category,
-              eventType: (ev.category === 'special' || ev.pointTier === 'special') ? 'Special' : (eventWithPalakasan.isMajor ? 'Major' : 'Minor'),
-              finalRank: res.placement,
-              pointsAwarded: res.points,
-              dateAwarded: ev.declaredAt || '2026-09-15',
-              declaredBy: ev.declaredBy || 'Official Committee',
-              status: 'official',
-            };
-            initialTransactions.push(trans);
-            const transDoc = doc(db, 'pointTransactions', transId);
-            batch.set(transDoc, cleanForFirestore(trans));
-          }
-        }
-      }
-
-      // Seed Historical 2025 Transactions
-      for (const trans of HISTORICAL_2025_TRANSACTIONS) {
-        const transDoc = doc(db, 'pointTransactions', trans.id);
-        batch.set(transDoc, cleanForFirestore(trans));
-      }
-
-      // Seed Activity Logs
-      for (const log of INITIAL_ACTIVITY_LOGS) {
-        const logDoc = doc(db, 'activityLogs', log.id);
-        batch.set(
-          logDoc,
-          cleanForFirestore({
-            ...log,
-            palakasanId: 'palakasan-2026',
-          })
-        );
-      }
-
       await batch.commit();
-      console.log('Initial Firestore database seeded successfully!');
+      console.log('Foundational colleges, categories, and venues initialized.');
     } else {
       // Synchronize/ensure college monikers match updated designations
       try {
-        const collegesRef = collection(db, 'colleges');
         const colSnap = await getDocs(collegesRef);
         if (!colSnap.empty) {
           const syncBatch = writeBatch(db);
@@ -506,39 +456,40 @@ export async function initializeFirestoreDatabase(): Promise<void> {
       } catch (colSyncErr) {
         console.warn('Could not sync college monikers in Firestore:', colSyncErr);
       }
+    }
 
-      // Synchronize/ensure specialPoints exist in palakasans scoringRules
-      try {
-        const palakasansRef = collection(db, 'palakasans');
-        const palSnap = await getDocs(palakasansRef);
-        if (!palSnap.empty) {
-          const palBatch = writeBatch(db);
-          let needsPalSync = false;
-          palSnap.forEach(docSnap => {
-            const data = docSnap.data() as PalakasanEdition;
-            if (!data.scoringRules?.specialPoints) {
-              palBatch.set(
-                docSnap.ref,
-                cleanForFirestore({
-                  ...data,
-                  scoringRules: {
-                    ...data.scoringRules,
-                    specialPoints: { '1st': 60, '2nd': 45, '3rd': 30, '4th': 20, DQ: 0 },
-                  },
-                }),
-                { merge: true }
-              );
-              needsPalSync = true;
-            }
-          });
-          if (needsPalSync) {
-            await palBatch.commit();
-            console.log('Special events scoring rules synchronized in Firestore.');
+    // Synchronize/ensure specialPoints exist in palakasans scoringRules
+    try {
+      const palakasansRef = collection(db, 'palakasans');
+      const palSnap = await getDocs(palakasansRef);
+      if (!palSnap.empty) {
+        const palBatch = writeBatch(db);
+        let needsPalSync = false;
+        palSnap.forEach(docSnap => {
+          const data = docSnap.data() as PalakasanEdition;
+          if (!data.scoringRules?.specialPoints || !data.scoringRules?.disciplinePoints) {
+            palBatch.set(
+              docSnap.ref,
+              cleanForFirestore({
+                ...data,
+                scoringRules: {
+                  ...data.scoringRules,
+                  specialPoints: data.scoringRules?.specialPoints || { '1st': 60, '2nd': 45, '3rd': 30, '4th': 20, DQ: 0 },
+                  disciplinePoints: data.scoringRules?.disciplinePoints || { '1st': 10, '2nd': 8, '3rd': 6, '4th': 4, '5th': 2, '6th': 0, DQ: 0 },
+                },
+              }),
+              { merge: true }
+            );
+            needsPalSync = true;
           }
+        });
+        if (needsPalSync) {
+          await palBatch.commit();
+          console.log('Special events scoring rules synchronized in Firestore.');
         }
-      } catch (palSyncErr) {
-        console.warn('Could not sync specialPoints in Firestore:', palSyncErr);
       }
+    } catch (palSyncErr) {
+      console.warn('Could not sync specialPoints in Firestore:', palSyncErr);
     }
   } catch (err) {
     console.error('Error during Firestore initialization/seeding:', err);
@@ -728,6 +679,89 @@ export async function setActivePalakasan(targetId: string, allEditions: Palakasa
   await batch.commit();
 }
 
+export async function deletePalakasanEdition(editionId: string): Promise<void> {
+  const batch = writeBatch(db);
+  const docRef = doc(db, 'palakasans', editionId);
+  batch.delete(docRef);
+
+  // Delete all events for this palakasan
+  const eventsRef = collection(db, 'events');
+  const evSnap = await getDocs(eventsRef);
+  evSnap.forEach(d => {
+    const data = d.data() as PalakasanEvent;
+    if (data.palakasanId === editionId) {
+      batch.delete(d.ref);
+    }
+  });
+
+  // Delete point transactions for this palakasan
+  const ptRef = collection(db, 'pointTransactions');
+  const ptSnap = await getDocs(ptRef);
+  ptSnap.forEach(d => {
+    const data = d.data() as PointTransaction;
+    if (data.palakasanId === editionId) {
+      batch.delete(d.ref);
+    }
+  });
+
+  // Delete activity logs for this palakasan
+  const actRef = collection(db, 'activityLogs');
+  const actSnap = await getDocs(actRef);
+  actSnap.forEach(d => {
+    const data = d.data() as ActivityLogItem;
+    if (data.palakasanId === editionId) {
+      batch.delete(d.ref);
+    }
+  });
+
+  await batch.commit();
+}
+
+/**
+ * Completely purges all tournament editions, events, point transactions,
+ * and activity logs from Firestore. Foundational colleges and venues remain intact.
+ */
+export async function wipeAllTournamentsData(adminUser = 'Administrator'): Promise<void> {
+  const collections = [
+    'palakasans',
+    'events',
+    'pointTransactions',
+    'activityLogs',
+    'matches',
+    'matchResults',
+    'brackets',
+    'standings',
+    'eventRankings',
+  ];
+
+  for (const colName of collections) {
+    const colRef = collection(db, colName);
+    const snap = await getDocs(colRef);
+    if (!snap.empty) {
+      const batch = writeBatch(db);
+      snap.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    }
+  }
+
+  // Ensure colleges and venues are intact
+  const collegesRef = collection(db, 'colleges');
+  const colSnap = await getDocs(collegesRef);
+  if (colSnap.empty) {
+    const batch = writeBatch(db);
+    for (const col of INITIAL_COLLEGES) {
+      batch.set(doc(db, 'colleges', col.id), cleanForFirestore(col));
+    }
+    for (const cat of INITIAL_CATEGORIES) {
+      batch.set(doc(db, 'categories', cat.id), cleanForFirestore(cat));
+    }
+    for (const v of INITIAL_VENUES) {
+      batch.set(doc(db, 'venues', v.id), cleanForFirestore(v));
+    }
+    await batch.commit();
+  }
+}
+
 // ==========================================
 // COLLEGE MANAGEMENT
 // ==========================================
@@ -836,9 +870,117 @@ export async function saveEvent(event: PalakasanEvent): Promise<void> {
   );
 }
 
+export async function saveEventsBatch(eventsList: PalakasanEvent[]): Promise<void> {
+  if (!eventsList || eventsList.length === 0) return;
+  const batch = writeBatch(db);
+  for (const event of eventsList) {
+    const docRef = doc(db, 'events', event.id);
+    batch.set(
+      docRef,
+      cleanForFirestore({
+        ...event,
+        updatedAt: new Date().toISOString(),
+      }),
+      { merge: true }
+    );
+  }
+  await batch.commit();
+}
+
 export async function removeEvent(id: string): Promise<void> {
+  const batch = writeBatch(db);
   const docRef = doc(db, 'events', id);
-  await deleteDoc(docRef);
+  batch.delete(docRef);
+
+  // Cascade delete point transactions associated with this event
+  const ptRef = collection(db, 'pointTransactions');
+  const ptSnap = await getDocs(ptRef);
+  ptSnap.forEach(d => {
+    const data = d.data() as PointTransaction;
+    if (data.eventId === id) {
+      batch.delete(d.ref);
+    }
+  });
+
+  // Cascade delete activity logs referencing this event
+  const actRef = collection(db, 'activityLogs');
+  const actSnap = await getDocs(actRef);
+  actSnap.forEach(d => {
+    const data = d.data() as ActivityLogItem;
+    if (data.eventId === id) {
+      batch.delete(d.ref);
+    }
+  });
+
+  await batch.commit();
+}
+
+export interface GrievanceDeductionParams {
+  palakasanId: string;
+  collegeId: CollegeId;
+  pointsToDeduct: number;
+  reason: string;
+  scope: 'overall' | CategoryId;
+  eventId?: string;
+  eventName?: string;
+  resolutionId?: string;
+  adminUser: string;
+}
+
+/**
+ * Records an official grievance or disciplinary point deduction against a college.
+ * Deducts points from overall standing or from a designated category (Sports, Cultural, Literary, Special).
+ */
+export async function recordGrievancePointDeduction(params: GrievanceDeductionParams): Promise<PointTransaction> {
+  const pts = -Math.abs(params.pointsToDeduct);
+  const txId = `pt-deduct-${params.collegeId}-${Date.now()}`;
+  const transDoc = doc(db, 'pointTransactions', txId);
+  const now = new Date();
+
+  const transaction: PointTransaction = {
+    id: txId,
+    palakasanId: params.palakasanId,
+    collegeId: params.collegeId,
+    eventId: params.eventId || 'grievance-penalty',
+    eventName: params.eventName
+      ? `[Penalty] ${params.eventName}`
+      : `[Grievance Deduction] ${params.scope.toUpperCase()}`,
+    category: params.scope as any,
+    eventType: 'Penalty / Grievance',
+    finalRank: 'Penalty',
+    pointsAwarded: pts,
+    dateAwarded: now.toISOString().split('T')[0],
+    declaredBy: params.adminUser,
+    status: 'official',
+    reason: params.reason,
+    grievanceResolutionId: params.resolutionId || '',
+    deductionScope: params.scope,
+  };
+
+  const batch = writeBatch(db);
+  batch.set(transDoc, cleanForFirestore(transaction));
+
+  // Log activity
+  const logId = `log-${Date.now()}`;
+  const logDoc = doc(db, 'activityLogs', logId);
+  batch.set(
+    logDoc,
+    cleanForFirestore({
+      id: logId,
+      palakasanId: params.palakasanId,
+      action: 'Points Deduction (Grievance)',
+      eventTitle: transaction.eventName,
+      eventId: transaction.eventId,
+      date: now.toISOString().split('T')[0],
+      time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      adminUser: params.adminUser,
+      description: `Deducted ${params.pointsToDeduct} pts from ${params.collegeId} (${params.scope}). Reason: ${params.reason}`,
+      timestamp: Date.now(),
+    })
+  );
+
+  await batch.commit();
+  return transaction;
 }
 
 // ==========================================
