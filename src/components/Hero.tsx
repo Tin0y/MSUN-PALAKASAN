@@ -20,19 +20,19 @@ export const Hero: React.FC<HeroProps> = ({ onSelectTab, onScrollToOverall }) =>
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col items-center text-center">
           {/* Tagline Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-blue-100/70 border border-blue-200 text-blue-800 mb-4">
-            <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-            <span className="text-xs font-semibold tracking-wide">
+          <div className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1 rounded-full bg-blue-100/70 border border-blue-200 text-blue-800 mb-4 max-w-full">
+            <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+            <span className="text-[11px] sm:text-xs font-semibold tracking-wide truncate">
               Unity • Excellence • Sportsmanship
             </span>
-            <span className="w-1 h-1 rounded-full bg-blue-400" />
-            <span className="text-xs font-medium text-blue-700">
+            <span className="w-1 h-1 rounded-full bg-blue-400 shrink-0 hidden sm:inline-block" />
+            <span className="text-xs font-medium text-blue-700 hidden sm:inline-block">
               {currentPalakasan ? currentPalakasan.name || `PALAKASAN ${currentPalakasan.year}` : 'MSUN Tournament'}
             </span>
           </div>
 
           {/* Main Title */}
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 mb-2">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 mb-2 break-words max-w-full">
             {currentPalakasan?.theme?.title ? (
               currentPalakasan.theme.title
             ) : (
@@ -41,21 +41,21 @@ export const Hero: React.FC<HeroProps> = ({ onSelectTab, onScrollToOverall }) =>
           </h1>
 
           {/* Subtitle */}
-          <p className="text-lg sm:text-xl font-semibold text-slate-700 max-w-2xl mb-3">
+          <p className="text-base sm:text-lg md:text-xl font-semibold text-slate-700 max-w-2xl mb-3 px-2">
             {currentPalakasan?.theme?.tagline || 'MSU at Naawan University-Wide Competition'}
           </p>
 
-          <p className="text-sm sm:text-base text-slate-600 max-w-2xl leading-relaxed mb-8">
+          <p className="text-xs sm:text-sm md:text-base text-slate-600 max-w-2xl leading-relaxed mb-8 px-2">
             The official information portal for live tournament standings, category leaders,
             schedules, and certified match points across all four colleges.
           </p>
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mb-10">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2.5 sm:gap-4 mb-10 w-full max-w-md sm:max-w-none">
             <button
               id="hero-view-overall-btn"
               onClick={onScrollToOverall}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm sm:text-base shadow-sm transition-colors"
+              className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm sm:text-base shadow-sm transition-colors cursor-pointer"
             >
               <Trophy className="w-4 h-4 text-white" />
               <span>View Overall Standing</span>
@@ -64,7 +64,7 @@ export const Hero: React.FC<HeroProps> = ({ onSelectTab, onScrollToOverall }) =>
             <button
               id="hero-view-schedule-btn"
               onClick={() => onSelectTab('schedule')}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-white hover:bg-blue-50 text-blue-700 font-semibold text-sm sm:text-base border border-blue-300 shadow-xs transition-colors"
+              className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg bg-white hover:bg-blue-50 text-blue-700 font-semibold text-sm sm:text-base border border-blue-300 shadow-xs transition-colors cursor-pointer"
             >
               <Calendar className="w-4 h-4 text-blue-600" />
               <span>View Schedule</span>

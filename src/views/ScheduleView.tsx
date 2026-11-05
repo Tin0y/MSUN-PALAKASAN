@@ -264,7 +264,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                 }`}
               >
                 {/* Left block: Category & Time */}
-                <div className="flex items-start sm:items-center gap-3 min-w-[220px]">
+                <div className="flex items-start sm:items-center gap-3 min-w-0 sm:min-w-[200px]">
                   <div className="text-center px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 shrink-0">
                     <div className="text-[10px] uppercase font-semibold text-slate-500">Date</div>
                     <div className="text-xs font-bold text-slate-800">{event.date}</div>

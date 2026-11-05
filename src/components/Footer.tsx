@@ -14,10 +14,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectTab, onOpenAdmin }) => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Col 1: Brand */}
           <div className="space-y-2.5 md:col-span-2">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white shadow-xs">
-                <Trophy className="w-4 h-4" />
-              </div>
+            <div className="flex items-center gap-2">
               <span className="font-extrabold text-blue-950 text-base">MSUN PALAKASAN 2026</span>
             </div>
             <p className="text-slate-600 text-xs leading-relaxed max-w-md">

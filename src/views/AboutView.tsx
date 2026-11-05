@@ -16,17 +16,19 @@ export const AboutView: React.FC<AboutViewProps> = ({ onOpenCollegeModal }) => {
   return (
     <div className="py-8 sm:py-10 space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* Header */}
-      <div className="border-b border-slate-200 pb-5">
-        <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-blue-700 mb-1">
-          <Trophy className="w-3.5 h-3.5" />
-          <span>Tournament Guidelines & Rules</span>
+      <div className="border-b border-slate-200 pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-blue-700 mb-1">
+            <Trophy className="w-3.5 h-3.5" />
+            <span>Tournament Guidelines & Rules</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">
+            About MSUN Palakasan
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-3xl leading-relaxed">
+            The Mindanao State University at Naawan (MSUN) PALAKASAN is the annual university-wide athletic, cultural, literary, and special events tournament fostering camaraderie, sporting excellence, and collegiate leadership.
+          </p>
         </div>
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">
-          About MSUN Palakasan
-        </h1>
-        <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-3xl leading-relaxed">
-          The Mindanao State University at Naawan (MSUN) PALAKASAN is the annual university-wide athletic, cultural, literary, and special events tournament fostering camaraderie, sporting excellence, and collegiate leadership.
-        </p>
       </div>
 
       {/* Official Scoring System (Section 3) */}

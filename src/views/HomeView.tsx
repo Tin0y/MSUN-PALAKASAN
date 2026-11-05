@@ -6,7 +6,7 @@ import { HappeningNow } from '../components/HappeningNow';
 import { UpcomingActivities } from '../components/UpcomingActivities';
 import { RecentResults } from '../components/RecentResults';
 import { CollegeId, NavigationTab } from '../types';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Lock } from 'lucide-react';
 import { usePalakasan } from '../context/PalakasanContext';
 import { getCollegeBadgeStyle } from '../utils/collegeTheme';
 
@@ -21,7 +21,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onOpenCollegeModal,
   onOpenEventModal,
 }) => {
-  const { getCategoryStandings } = usePalakasan();
+  const { getCategoryStandings, isRankingHidden } = usePalakasan();
 
   const handleScrollToOverall = () => {
     const el = document.getElementById('overall-standing-section');
@@ -87,6 +87,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               { id: 'literary' as const, name: 'Literary Division', icon: '📚', tab: 'literary' as const, desc: 'Balak Performance, Debate, Extemp & Essay Writing' },
               { id: 'special' as const, name: 'Special Events', icon: '⭐', tab: 'special' as const, desc: 'Tough Model, Pageantry & Campus Spectacles' },
             ].map(cat => {
+              const isCatHidden = isRankingHidden(cat.id);
               const standings = getCategoryStandings(cat.id);
               const leader = standings[0];
               const badge = leader ? getCollegeBadgeStyle(leader.college.acronym) : null;
@@ -111,8 +112,15 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   </div>
 
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-[11px] text-slate-400 uppercase font-semibold">Leader:</span>
-                    {leader ? (
+                    <span className="text-[11px] text-slate-400 uppercase font-semibold">
+                      {isCatHidden ? 'Standings:' : 'Leader:'}
+                    </span>
+                    {isCatHidden ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                        <Lock className="w-3 h-3 text-amber-700" />
+                        <span>Sealed for Reveal</span>
+                      </span>
+                    ) : leader ? (
                       <span className={`text-xs font-bold px-2 py-0.5 rounded border ${badge?.bg} ${badge?.text} ${badge?.border}`}>
                         {leader.college.acronym} ({leader.points} pts)
                       </span>

@@ -199,8 +199,95 @@ export const CategoryStandingView: React.FC<CategoryStandingViewProps> = ({
             </div>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-xs">
-            <table className="w-full min-w-[550px] text-left border-collapse">
+          <>
+            {/* Mobile-Friendly Cards View (Prevents horizontal overflow and scrolling on small screens) */}
+            <div className="block sm:hidden space-y-3 mb-4">
+              {standings.map(item => {
+                const college = item.college;
+                const style = getCollegeBadgeStyle(college.id);
+                const isFirst = item.rank === 1;
+
+                return (
+                  <div
+                    key={college.id}
+                    onClick={() => onOpenCollegeModal(college.id)}
+                    className={`p-4 rounded-xl border transition-all cursor-pointer bg-white shadow-2xs ${
+                      isFirst ? 'border-amber-300 ring-2 ring-amber-400/20' : 'border-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex items-center justify-center shrink-0">
+                          {item.rank === 1 && (
+                            <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-amber-50 text-amber-800 font-bold text-xs border border-amber-200">
+                              🥇
+                            </span>
+                          )}
+                          {item.rank === 2 && (
+                            <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200">
+                              🥈
+                            </span>
+                          )}
+                          {item.rank === 3 && (
+                            <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-amber-100/60 text-amber-900 font-bold text-xs border border-amber-200">
+                              🥉
+                            </span>
+                          )}
+                          {item.rank === 4 && (
+                            <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-50 text-slate-600 font-medium text-xs border border-slate-200">
+                              4th
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-extrabold text-base text-slate-900 truncate">
+                              {college.acronym}
+                            </span>
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: style.hex }}
+                              title={`Designated Color: ${style.colorName}`}
+                            />
+                            <span
+                              className="text-[10px] px-1.5 py-0.2 rounded font-bold uppercase tracking-wider"
+                              style={{
+                                backgroundColor: style.lightBg,
+                                color: style.hex,
+                              }}
+                            >
+                              {style.colorName}
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-slate-500 truncate block">
+                            {college.name}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <div className="text-xl font-black text-blue-900 font-mono">
+                          {item.points}
+                          <span className="text-[10px] font-sans font-medium text-slate-500 ml-0.5">pts</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100 text-slate-500">
+                      <span>Events Contested</span>
+                      <span className="font-bold text-slate-700 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                        {item.eventsCompleted} Completed
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop & Tablet Table View */}
+            <div className="hidden sm:block overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-xs">
+              <table className="w-full min-w-[550px] text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 bg-blue-50/70 text-[11px] font-bold uppercase tracking-wider text-blue-900">
                   <th className="py-3 px-4 sm:px-6 text-center w-20">Rank</th>
@@ -297,8 +384,9 @@ export const CategoryStandingView: React.FC<CategoryStandingViewProps> = ({
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        </>
+      )}
+    </div>
 
       {/* Completed Events in this Category */}
       <div className="space-y-3">

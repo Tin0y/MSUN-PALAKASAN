@@ -177,19 +177,14 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       {/* Brand Header & Active Account */}
       <div className="p-4 border-b border-slate-100 bg-blue-50/40 space-y-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
-              M
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-extrabold text-sm text-blue-950 tracking-tight">PALAKASAN</span>
+              <span className="text-[10px] font-bold px-1.5 py-0.2 bg-blue-100 text-blue-800 rounded">
+                ADMIN
+              </span>
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-extrabold text-sm text-blue-950 tracking-tight">PALAKASAN</span>
-                <span className="text-[10px] font-bold px-1.5 py-0.2 bg-blue-100 text-blue-800 rounded">
-                  ADMIN
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 font-medium">MSU at Naawan</p>
-            </div>
+            <p className="text-[11px] text-slate-500 font-medium">MSU at Naawan</p>
           </div>
         </div>
 
