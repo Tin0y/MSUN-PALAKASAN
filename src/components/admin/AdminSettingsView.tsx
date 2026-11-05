@@ -12,7 +12,6 @@ import {
   RefreshCw,
   Info,
   Calendar,
-  Sparkles,
   Trophy,
   History,
   X,
@@ -304,7 +303,7 @@ export const AdminSettingsView: React.FC = () => {
               <div className="p-3 rounded-xl bg-purple-50/70 border border-purple-200/60 space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-purple-900 flex items-center gap-1">
-                    <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                    <Award className="w-3.5 h-3.5 text-purple-600" />
                     Special Events Tier
                   </span>
                   <span className="text-[10px] font-extrabold px-1.5 py-0.2 bg-purple-200/60 text-purple-800 rounded">

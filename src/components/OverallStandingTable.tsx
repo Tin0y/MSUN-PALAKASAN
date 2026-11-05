@@ -3,7 +3,7 @@ import {
   Trophy,
   ArrowUpRight,
   Award,
-  Sparkles,
+  Music,
   BookOpen,
   Flame,
   Lock,
@@ -164,7 +164,7 @@ export const OverallStandingTable: React.FC<OverallStandingTableProps> = ({
             </div>
 
             <div className="text-[11px] text-slate-500 font-medium">
-              ✨ Stay tuned to the live TSAC Closing Ceremony to celebrate the Overall University Champion!
+              🏆 Stay tuned to the live TSAC Closing Ceremony to celebrate the Overall University Champion!
             </div>
           </div>
         ) : (
@@ -252,7 +252,7 @@ export const OverallStandingTable: React.FC<OverallStandingTableProps> = ({
                     </th>
                     <th className="py-3 px-3 sm:px-4 text-center">
                       <div className="flex items-center justify-center gap-1 text-blue-800">
-                        <Sparkles className="w-3.5 h-3.5" />
+                        <Music className="w-3.5 h-3.5" />
                         <span>Cultural</span>
                       </div>
                     </th>

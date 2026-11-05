@@ -19,7 +19,6 @@ import {
   Layers,
   Award,
   FileSpreadsheet,
-  Sparkles,
 } from 'lucide-react';
 import { AdminSection } from '../../types';
 import { usePalakasan } from '../../context/PalakasanContext';
@@ -140,7 +139,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         {
           id: 'palakasans',
           label: 'PALAKASAN Editions',
-          icon: <Sparkles className="w-4 h-4" />,
+          icon: <Trophy className="w-4 h-4" />,
           badge: `${allPalakasans.length}`,
         },
       ],

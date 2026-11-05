@@ -4,7 +4,7 @@ import {
   CheckCircle2,
   ShieldCheck,
   Save,
-  Sparkles,
+  Info,
   Star,
   Layers,
   Filter,
@@ -128,7 +128,7 @@ export const AdminScoringView: React.FC = () => {
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200 mb-2">
-            <Sparkles className="w-3.5 h-3.5" />
+            <Award className="w-3.5 h-3.5" />
             <span>Three-Tier Championship Architecture</span>
           </div>
           <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
@@ -496,7 +496,7 @@ export const AdminScoringView: React.FC = () => {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         {/* Friendly Cultural & Literary Note */}
         <div className="mx-4 sm:mx-5 mt-4 p-3 rounded-xl bg-blue-50/70 border border-blue-200 text-xs text-blue-900 flex items-start gap-2">
-          <Sparkles className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+          <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
           <span>
             <strong>Flexible Cultural & Literary Points:</strong> Cultural events (e.g. Hiphop Dance, Folk Dance Festival) and Literary competitions (e.g. Parliamentary Debate, Balak) can be assigned to either <strong>Major Tier ({majorPoints['1st']} pts)</strong> or <strong>Minor Tier ({minorPoints['1st']} pts)</strong> below.
           </span>

@@ -7,7 +7,6 @@ import {
   Flame,
   Trophy,
   Award,
-  Sparkles,
   BookOpen,
   CheckCircle2,
   AlertCircle,

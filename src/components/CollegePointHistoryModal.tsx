@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Trophy, Award, Sparkles, BookOpen, Flame, Lock } from 'lucide-react';
+import { X, Trophy, Award, Music, BookOpen, Flame, Lock } from 'lucide-react';
 import { usePalakasan } from '../context/PalakasanContext';
 import { CategoryId, CollegeId } from '../types';
 import { getCollegeBadgeStyle, getPlacementBadge } from '../utils/collegeTheme';
@@ -40,7 +40,7 @@ export const CollegePointHistoryModal: React.FC<CollegePointHistoryModalProps> =
       id: 'cultural',
       title: 'Cultural',
       icon: '🎭',
-      iconComponent: <Sparkles className="w-4 h-4 text-blue-600" />,
+      iconComponent: <Music className="w-4 h-4 text-blue-600" />,
     },
     {
       id: 'literary',

@@ -195,7 +195,7 @@ export const CategoryStandingView: React.FC<CategoryStandingViewProps> = ({
             </div>
 
             <div className="text-[11px] text-slate-500 font-medium">
-              ✨ Concluded events remain audited. Standings will be unveiled during the Grand Awarding!
+              🏆 Concluded events remain audited. Standings will be unveiled during the Grand Awarding!
             </div>
           </div>
         ) : (

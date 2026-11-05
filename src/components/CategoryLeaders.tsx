@@ -1,5 +1,5 @@
 import React from 'react';
-import { Award, Sparkles, BookOpen, Flame, ChevronRight, Trophy, Lock } from 'lucide-react';
+import { Award, Music, BookOpen, Flame, ChevronRight, Trophy, Lock } from 'lucide-react';
 import { usePalakasan } from '../context/PalakasanContext';
 import { CategoryId, NavigationTab } from '../types';
 
@@ -30,7 +30,7 @@ export const CategoryLeaders: React.FC<CategoryLeadersProps> = ({
       id: 'cultural',
       tab: 'cultural',
       title: 'Cultural Leader',
-      icon: <Sparkles className="w-4 h-4 text-blue-600" />,
+      icon: <Music className="w-4 h-4 text-blue-600" />,
     },
     {
       id: 'literary',

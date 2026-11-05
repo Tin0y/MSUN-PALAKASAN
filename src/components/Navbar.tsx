@@ -12,7 +12,7 @@ import {
   Flame,
   Award,
   BookOpen,
-  Sparkles,
+  Music,
   Lock,
 } from 'lucide-react';
 import { NavigationTab } from '../types';
@@ -53,7 +53,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { tab: 'home', label: 'Home', shortLabel: 'Home', icon: <Home className="w-3.5 h-3.5" /> },
     { tab: 'overall', label: 'Standings', shortLabel: 'Standings', icon: <Trophy className="w-3.5 h-3.5" /> },
     { tab: 'sports', label: 'Sports', shortLabel: 'Sports', icon: <Award className="w-3.5 h-3.5" /> },
-    { tab: 'cultural', label: 'Cultural', shortLabel: 'Cultural', icon: <Sparkles className="w-3.5 h-3.5" /> },
+    { tab: 'cultural', label: 'Cultural', shortLabel: 'Cultural', icon: <Music className="w-3.5 h-3.5" /> },
     { tab: 'literary', label: 'Literary', shortLabel: 'Literary', icon: <BookOpen className="w-3.5 h-3.5" /> },
     { tab: 'special', label: 'Special Events', shortLabel: 'Special', icon: <Flame className="w-3.5 h-3.5" /> },
     { tab: 'schedule', label: 'Schedule', shortLabel: 'Schedule', icon: <Calendar className="w-3.5 h-3.5" /> },

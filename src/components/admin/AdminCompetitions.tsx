@@ -14,7 +14,6 @@ import {
   ChevronRight,
   Info,
   CalendarDays,
-  Sparkles,
   ArrowRight,
   Search,
 } from 'lucide-react';

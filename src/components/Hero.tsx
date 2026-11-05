@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trophy, Calendar, Sparkles } from 'lucide-react';
+import { Trophy, Calendar } from 'lucide-react';
 import { usePalakasan } from '../context/PalakasanContext';
 import { NavigationTab } from '../types';
 
@@ -21,7 +21,6 @@ export const Hero: React.FC<HeroProps> = ({ onSelectTab, onScrollToOverall }) =>
         <div className="flex flex-col items-center text-center">
           {/* Tagline Badge */}
           <div className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1 rounded-full bg-blue-100/70 border border-blue-200 text-blue-800 mb-4 max-w-full">
-            <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0" />
             <span className="text-[11px] sm:text-xs font-semibold tracking-wide truncate">
               Unity • Excellence • Sportsmanship
             </span>

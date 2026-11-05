@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layers, Plus, Edit2, Check, X, Sparkles, BookOpen, Activity, Star } from 'lucide-react';
+import { Layers, Plus, Edit2, Check, X, BookOpen, Activity, Star } from 'lucide-react';
 import { usePalakasan } from '../../context/PalakasanContext';
 import { Category, CategoryId } from '../../types';
 

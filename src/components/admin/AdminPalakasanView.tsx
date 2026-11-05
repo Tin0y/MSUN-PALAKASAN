@@ -4,7 +4,6 @@ import {
   Plus,
   Calendar,
   Layers,
-  Sparkles,
   CheckCircle2,
   Clock,
   Archive,

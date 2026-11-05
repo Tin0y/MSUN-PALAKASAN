@@ -5,7 +5,6 @@ import {
   ChevronRight,
   ChevronLeft,
   Trophy,
-  Sparkles,
   Layers,
   Calendar,
   AlertCircle,
@@ -1231,7 +1230,7 @@ export const AdminStartNewPalakasanModal: React.FC<AdminStartNewPalakasanModalPr
                     className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors"
                     title="Load standard MSU at Naawan tournament lineup"
                   >
-                    <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                    <Zap className="w-3.5 h-3.5 text-blue-600" />
                     <span>Quick Fill MSUN Events</span>
                   </button>
                   {eventsList.length > 0 && (
@@ -1365,7 +1364,7 @@ export const AdminStartNewPalakasanModal: React.FC<AdminStartNewPalakasanModalPr
                   return (
                     <div className="pt-2 border-t border-slate-200/60">
                       <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mb-1.5">
-                        <Sparkles className="w-3 h-3 text-amber-500" />
+                        <Zap className="w-3 h-3 text-amber-500" />
                         <span>Quick-add standard {targetCat} events:</span>
                       </div>
                       <div className="flex flex-wrap gap-1.5">

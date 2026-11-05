@@ -42,7 +42,7 @@ export const COMMITTEE_ACCOUNTS: CommitteeAccount[] = [
     avatarInitials: 'MH',
     avatarColor: 'bg-purple-600 text-white',
     badgeColor: 'bg-purple-50 text-purple-700 border-purple-200',
-    iconName: 'Sparkles',
+    iconName: 'Music',
     description: 'Committee Head managing Vocal Solo, Vocal Duet, Folk Dance, Modern Hip-Hop, Acoustic Band, and Cultural Show.',
   },
   {
