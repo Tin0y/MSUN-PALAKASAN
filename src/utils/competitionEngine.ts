@@ -8,9 +8,10 @@ import {
   PalakasanEvent,
   Placement,
   RoundRobinTeamStats,
+  ScoringRulesConfig,
   TieBreakerRule,
 } from '../types';
-import { OFFICIAL_POINTS } from '../data/initialData';
+import { getEventPointsForPlacement } from '../data/initialData';
 
 // Generate default match times incrementing by duration
 export function addMinutesToTime(timeStr: string, minutesToAdd: number): string {
@@ -374,7 +375,8 @@ export function processDoubleEliminationGameResult(
   scoreB: number,
   winnerCollegeId: CollegeId,
   loserCollegeId: CollegeId,
-  isDraw = false
+  isDraw = false,
+  scoringRules?: ScoringRulesConfig | null
 ): {
   updatedGames: GameMatch[];
   eliminated: EliminatedCollege[];
@@ -542,7 +544,7 @@ export function processDoubleEliminationGameResult(
       {
         collegeId: champion,
         placement: '1st',
-        points: OFFICIAL_POINTS['1st'],
+        points: getEventPointsForPlacement('1st', event, scoringRules),
         note: 'Tournament Champion (Double Elimination)',
       },
     ];
@@ -551,7 +553,7 @@ export function processDoubleEliminationGameResult(
       finalRankings.push({
         collegeId: secondPlace,
         placement: '2nd',
-        points: OFFICIAL_POINTS['2nd'],
+        points: getEventPointsForPlacement('2nd', event, scoringRules),
         note: 'Runner-up',
       });
     }
@@ -559,7 +561,7 @@ export function processDoubleEliminationGameResult(
       finalRankings.push({
         collegeId: thirdPlace,
         placement: '3rd',
-        points: OFFICIAL_POINTS['3rd'],
+        points: getEventPointsForPlacement('3rd', event, scoringRules),
         note: '3rd Place (Losers Bracket Finalist)',
       });
     }
@@ -567,7 +569,7 @@ export function processDoubleEliminationGameResult(
       finalRankings.push({
         collegeId: fourthPlace,
         placement: '4th',
-        points: OFFICIAL_POINTS['4th'],
+        points: getEventPointsForPlacement('4th', event, scoringRules),
         note: '4th Place (Losers Bracket Round 1)',
       });
     }
@@ -588,7 +590,9 @@ export function processDoubleEliminationGameResult(
 export function calculateRoundRobinStandings(
   colleges: CollegeId[],
   games: GameMatch[],
-  tieBreaker: TieBreakerRule = 'competition-points'
+  tieBreaker: TieBreakerRule = 'competition-points',
+  event?: PalakasanEvent | null,
+  scoringRules?: ScoringRulesConfig | null
 ): {
   table: RoundRobinTeamStats[];
   isAllCompleted: boolean;
@@ -705,7 +709,7 @@ export function calculateRoundRobinStandings(
       return {
         collegeId: team.collegeId,
         placement: p,
-        points: OFFICIAL_POINTS[p],
+        points: getEventPointsForPlacement(p, event, scoringRules),
         note: `Round Robin (${team.competitionPoints} pts, ${team.wins}W-${team.draws}D-${team.losses}L, Diff: ${team.scoreDiff > 0 ? `+${team.scoreDiff}` : team.scoreDiff})`,
       };
     });
@@ -728,7 +732,8 @@ export function processSingleEliminationGameResult(
   scoreA: number,
   scoreB: number,
   winnerCollegeId: CollegeId,
-  loserCollegeId: CollegeId
+  loserCollegeId: CollegeId,
+  scoringRules?: ScoringRulesConfig | null
 ): {
   updatedGames: GameMatch[];
   champion?: CollegeId;
@@ -780,25 +785,25 @@ export function processSingleEliminationGameResult(
       {
         collegeId: g4.winnerCollegeId!,
         placement: '1st',
-        points: 50,
+        points: getEventPointsForPlacement('1st', event, scoringRules),
         note: 'Tournament Champion (Single Elimination)',
       },
       {
         collegeId: g4.loserCollegeId!,
         placement: '2nd',
-        points: 40,
+        points: getEventPointsForPlacement('2nd', event, scoringRules),
         note: 'Runner-up',
       },
       {
         collegeId: g3.winnerCollegeId!,
         placement: '3rd',
-        points: 30,
+        points: getEventPointsForPlacement('3rd', event, scoringRules),
         note: '3rd Place (Consolation Match Winner)',
       },
       {
         collegeId: g3.loserCollegeId!,
         placement: '4th',
-        points: 20,
+        points: getEventPointsForPlacement('4th', event, scoringRules),
         note: '4th Place (Consolation Match Loser)',
       },
     ];

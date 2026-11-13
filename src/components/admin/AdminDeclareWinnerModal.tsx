@@ -30,7 +30,13 @@ import {
   SubCategoryDiscipline,
   DisciplinePointsConfig,
 } from '../../types';
-import { COLLEGES, getEventPointsForPlacement } from '../../data/initialData';
+import {
+  COLLEGES,
+  getAllowedTiersForCategory,
+  getEffectivePointTier,
+  getEventPointsForPlacement,
+  getNormalizedScoringRules,
+} from '../../data/initialData';
 import { getCollegeBadgeStyle } from '../../utils/collegeTheme';
 
 interface AdminDeclareWinnerModalProps {
@@ -107,18 +113,8 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
   }, [event?.participatingColleges]);
 
   const disciplinePointsConfig: DisciplinePointsConfig = useMemo(() => {
-    return (
-      currentPalakasan?.scoringRules?.disciplinePoints || {
-        '1st': 10,
-        '2nd': 8,
-        '3rd': 6,
-        '4th': 4,
-        '5th': 2,
-        '6th': 0,
-        DQ: 0,
-      }
-    );
-  }, [currentPalakasan?.scoringRules?.disciplinePoints]);
+    return getNormalizedScoringRules(currentPalakasan?.scoringRules).byCategory.sports.disciplinePoints;
+  }, [currentPalakasan?.scoringRules]);
 
   // Calculate accumulated score per college from categories
   const accumulatedScores = useMemo(() => {
@@ -168,10 +164,8 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
   useEffect(() => {
     if (!event) return;
 
-    // Detect initial tier
-    const initialTier: PointTier =
-      event.pointTier ||
-      (event.category === 'special' ? 'special' : event.isMajor || event.category === 'sports' ? 'major' : 'minor');
+    // Detect initial tier scoped by category
+    const initialTier: PointTier = getEffectivePointTier(event, currentPalakasan?.scoringRules);
     setSelectedTier(initialTier);
 
     // Initial Tab Selection: Default to multiCategory for Arnis and Swimming
@@ -359,7 +353,11 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
     });
 
     setResultsMap(updatedMap);
-    setSelectedTier('special'); // Special tier for Arnis/Swimming multi-event
+    setSelectedTier(
+      event.category === 'sports'
+        ? 'special'
+        : getEffectivePointTier(event, currentPalakasan?.scoringRules)
+    );
     setActiveTab('standard');
   };
 
@@ -451,7 +449,7 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
         event.id,
         {
           pointTier: selectedTier,
-          isMajor: selectedTier === 'major' || selectedTier === 'special',
+          isMajor: selectedTier !== 'minor',
           isMultiCategoryEvent: categoryDrafts.length > 0 || isArnisOrSwimming,
           subCategories: compiledSubs,
           accumulatedScores: accumulatedScores.scores,
@@ -490,7 +488,7 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
         event.id,
         {
           pointTier: selectedTier,
-          isMajor: selectedTier === 'major' || selectedTier === 'special',
+          isMajor: selectedTier !== 'minor',
           isMultiCategoryEvent: categoryDrafts.length > 0 || isArnisOrSwimming,
           subCategories: compiledSubs,
           accumulatedScores: accumulatedScores.scores,
@@ -832,12 +830,12 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
                                   className="text-[11px] font-semibold py-1 px-1.5 bg-slate-50 border border-slate-300 rounded-md focus:ring-1 focus:ring-purple-500 cursor-pointer"
                                 >
                                   <option value="">Unplaced (0)</option>
-                                  <option value="1st">1st (10 pts)</option>
-                                  <option value="2nd">8 pts</option>
-                                  <option value="3rd">6 pts</option>
-                                  <option value="4th">4 pts</option>
-                                  <option value="5th">2 pts</option>
-                                  <option value="6th">0 pts</option>
+                                  <option value="1st">1st ({disciplinePointsConfig['1st']} pts)</option>
+                                  <option value="2nd">2nd ({disciplinePointsConfig['2nd']} pts)</option>
+                                  <option value="3rd">3rd ({disciplinePointsConfig['3rd']} pts)</option>
+                                  <option value="4th">4th ({disciplinePointsConfig['4th']} pts)</option>
+                                  <option value="5th">5th ({disciplinePointsConfig['5th']} pts)</option>
+                                  <option value="6th">6th ({disciplinePointsConfig['6th']} pts)</option>
                                   <option value="DQ">DQ (0 pts)</option>
                                 </select>
 
@@ -876,55 +874,79 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
           {/* ========================================================================= */}
           {!showConfirmationSummary && activeTab === 'standard' && (
             <div className="space-y-4">
-              {/* Dynamic Point System Banner & Tier Selector */}
-              <div
-                className={`p-3.5 rounded-xl border space-y-2 ${
-                  selectedTier === 'special'
-                    ? 'bg-purple-50/80 border-purple-200 text-purple-950'
-                    : selectedTier === 'major'
-                    ? 'bg-blue-50/80 border-blue-200 text-blue-950'
-                    : 'bg-slate-50 border-slate-200 text-slate-900'
-                }`}
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 font-bold">
-                    {selectedTier === 'special' ? (
-                      <>
-                        <Star className="w-4 h-4 text-purple-700 fill-purple-700" />
-                        <span className="text-purple-900">⭐ Special Events Championship Scale Applied</span>
-                      </>
-                    ) : selectedTier === 'major' ? (
-                      <>
-                        <Award className="w-4 h-4 text-blue-700" />
-                        <span className="text-blue-900">🏅 Major Events Scale Applied</span>
-                      </>
-                    ) : (
-                      <>
-                        <Layers className="w-4 h-4 text-slate-700" />
-                        <span className="text-slate-800">🥈 Minor Events Scale Applied</span>
-                      </>
-                    )}
-                  </div>
+              {/* Dynamic Point System Banner & Category-Scoped Tier Selector */}
+              {(() => {
+                const allowedTiers = getAllowedTiersForCategory(
+                  event.category,
+                  currentPalakasan?.scoringRules
+                );
+                const categoryTitle =
+                  event.category === 'sports'
+                    ? 'Sports'
+                    : event.category === 'cultural'
+                    ? 'Cultural & Arts'
+                    : event.category === 'literary'
+                    ? 'Literary'
+                    : 'Special Events';
 
-                  {/* Tier Override Dropdown */}
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-slate-500 font-semibold">Championship Tier:</span>
-                    <select
-                      value={selectedTier}
-                      onChange={e => setSelectedTier(e.target.value as PointTier)}
-                      className="text-[11px] font-bold px-2 py-0.5 rounded-lg bg-white border border-slate-300 focus:outline-hidden cursor-pointer"
-                    >
-                      <option value="special">⭐ Special Tier ({getEventPointsForPlacement('1st', { pointTier: 'special' }, currentPalakasan?.scoringRules)} pts)</option>
-                      <option value="major">🏅 Major Tier ({getEventPointsForPlacement('1st', { pointTier: 'major' }, currentPalakasan?.scoringRules)} pts)</option>
-                      <option value="minor">🥈 Minor Tier ({getEventPointsForPlacement('1st', { pointTier: 'minor' }, currentPalakasan?.scoringRules)} pts)</option>
-                    </select>
-                  </div>
-                </div>
+                return (
+                  <div
+                    className={`p-3.5 rounded-xl border space-y-2 ${
+                      selectedTier === 'special'
+                        ? 'bg-amber-50/80 border-amber-200 text-amber-950'
+                        : selectedTier === 'major'
+                        ? 'bg-blue-50/80 border-blue-200 text-blue-950'
+                        : 'bg-slate-50 border-slate-200 text-slate-900'
+                    }`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 font-bold">
+                        {selectedTier === 'special' ? (
+                          <>
+                            <Swords className="w-4 h-4 text-amber-700" />
+                            <span className="text-amber-950">Special Sports Championship Scale Applied</span>
+                          </>
+                        ) : selectedTier === 'major' ? (
+                          <>
+                            <Award className="w-4 h-4 text-blue-700" />
+                            <span className="text-blue-900">
+                              Major {categoryTitle} Scale Applied
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <Layers className="w-4 h-4 text-slate-700" />
+                            <span className="text-slate-800">
+                              Minor {categoryTitle} Scale Applied
+                            </span>
+                          </>
+                        )}
+                      </div>
 
-                <div className="text-[11px] leading-relaxed font-mono">
-                  1st: <strong>{p1} pts</strong> • 2nd: <strong>{p2} pts</strong> • 3rd: <strong>{p3} pts</strong> • 4th: <strong>{p4} pts</strong> • DQ: <strong>0 pts</strong>
-                </div>
-              </div>
+                      {/* Category-Scoped Tier Override Dropdown */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-slate-500 font-semibold">Category Tier:</span>
+                        <select
+                          value={selectedTier}
+                          disabled={allowedTiers.length <= 1}
+                          onChange={e => setSelectedTier(e.target.value as PointTier)}
+                          className="text-[11px] font-bold px-2 py-0.5 rounded-lg bg-white border border-slate-300 focus:outline-hidden cursor-pointer disabled:opacity-80 disabled:cursor-not-allowed"
+                        >
+                          {allowedTiers.map(opt => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="text-[11px] leading-relaxed font-mono">
+                      1st: <strong>{p1} pts</strong> • 2nd: <strong>{p2} pts</strong> • 3rd: <strong>{p3} pts</strong> • 4th: <strong>{p4} pts</strong> • DQ: <strong>0 pts</strong>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">

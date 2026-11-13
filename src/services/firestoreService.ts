@@ -34,6 +34,9 @@ import {
   CATEGORIES as INITIAL_CATEGORIES,
   INITIAL_EVENTS,
   INITIAL_ACTIVITY_LOGS,
+  DEFAULT_BY_CATEGORY_SCORING,
+  getEffectivePointTier,
+  getNormalizedScoringRules,
 } from '../data/initialData';
 
 export enum OperationType {
@@ -135,6 +138,7 @@ export const DEFAULT_PALAKASAN_2026: PalakasanEdition = {
     minorPoints: { '1st': 30, '2nd': 20, '3rd': 15, '4th': 10, DQ: 0 },
     specialPoints: { '1st': 60, '2nd': 45, '3rd': 30, '4th': 20, DQ: 0 },
     disciplinePoints: { '1st': 10, '2nd': 8, '3rd': 6, '4th': 4, '5th': 2, '6th': 0, DQ: 0 },
+    byCategory: DEFAULT_BY_CATEGORY_SCORING,
   },
   competitionRules: {
     availableFormats: [
@@ -193,6 +197,7 @@ export const DEFAULT_PALAKASAN_2025: PalakasanEdition = {
     minorPoints: { '1st': 30, '2nd': 20, '3rd': 15, '4th': 10, DQ: 0 },
     specialPoints: { '1st': 60, '2nd': 45, '3rd': 30, '4th': 20, DQ: 0 },
     disciplinePoints: { '1st': 10, '2nd': 8, '3rd': 6, '4th': 4, '5th': 2, '6th': 0, DQ: 0 },
+    byCategory: DEFAULT_BY_CATEGORY_SCORING,
   },
   competitionRules: {
     availableFormats: ['double-elimination', 'round-robin', 'single-elimination'],
@@ -467,16 +472,12 @@ export async function initializeFirestoreDatabase(): Promise<void> {
         let needsPalSync = false;
         palSnap.forEach(docSnap => {
           const data = docSnap.data() as PalakasanEdition;
-          if (!data.scoringRules?.specialPoints || !data.scoringRules?.disciplinePoints) {
+          if (!data.scoringRules?.specialPoints || !data.scoringRules?.disciplinePoints || !data.scoringRules?.byCategory) {
             palBatch.set(
               docSnap.ref,
               cleanForFirestore({
                 ...data,
-                scoringRules: {
-                  ...data.scoringRules,
-                  specialPoints: data.scoringRules?.specialPoints || { '1st': 60, '2nd': 45, '3rd': 30, '4th': 20, DQ: 0 },
-                  disciplinePoints: data.scoringRules?.disciplinePoints || { '1st': 10, '2nd': 8, '3rd': 6, '4th': 4, '5th': 2, '6th': 0, DQ: 0 },
-                },
+                scoringRules: getNormalizedScoringRules(data.scoringRules),
               }),
               { merge: true }
             );
@@ -1019,9 +1020,10 @@ export async function certifyEventResult(
       eventId: event.id,
       eventName: event.eventName,
       category: event.category,
-      eventType: (event.category === 'special' || event.pointTier === 'special')
-        ? 'Special'
-        : (event.isMajor || event.pointTier === 'major' ? 'Major' : 'Minor'),
+      eventType: (() => {
+        const tier = getEffectivePointTier(event);
+        return tier === 'special' ? 'Special' : tier === 'major' ? 'Major' : 'Minor';
+      })(),
       finalRank: res.placement,
       pointsAwarded: res.points,
       dateAwarded: nowStr,
@@ -1211,6 +1213,8 @@ export async function resetDatabaseToDefaults(adminUser: string): Promise<void> 
           majorPoints: { '1st': 50, '2nd': 40, '3rd': 30, '4th': 20, DQ: 0 },
           minorPoints: { '1st': 30, '2nd': 20, '3rd': 15, '4th': 10, DQ: 0 },
           specialPoints: { '1st': 60, '2nd': 45, '3rd': 30, '4th': 20, DQ: 0 },
+          disciplinePoints: { '1st': 10, '2nd': 8, '3rd': 6, '4th': 4, '5th': 2, '6th': 0, DQ: 0 },
+          byCategory: DEFAULT_BY_CATEGORY_SCORING,
         },
       })
     );
@@ -1247,9 +1251,8 @@ export async function resetDatabaseToDefaults(adminUser: string): Promise<void> 
       if (ev.status === 'completed' && ev.results) {
         for (const res of ev.results) {
           const transId = `pt-${ev.id}-${res.collegeId}`;
-          const isSpecial = ev.category === 'special' || ev.pointTier === 'special';
-          const isMajor = ev.pointTier === 'major' || (ev.pointTier !== 'minor' && (ev.isMajor || ev.category === 'sports'));
-          const eventTypeLabel = isSpecial ? 'Special' : isMajor ? 'Major' : 'Minor';
+          const resolvedTier = getEffectivePointTier(ev);
+          const eventTypeLabel = resolvedTier === 'special' ? 'Special' : resolvedTier === 'major' ? 'Major' : 'Minor';
 
           const trans: PointTransaction = {
             id: transId,

@@ -70,7 +70,12 @@ import {
   processSingleEliminationGameResult,
 } from '../utils/competitionEngine';
 import { auth, googleProvider, signInWithPopup, signOut, onAuthStateChanged, User } from '../lib/firebase';
-import { COLLEGES as FALLBACK_COLLEGES, CATEGORIES as FALLBACK_CATEGORIES, INITIAL_EVENTS as FALLBACK_EVENTS } from '../data/initialData';
+import {
+  COLLEGES as FALLBACK_COLLEGES,
+  CATEGORIES as FALLBACK_CATEGORIES,
+  INITIAL_EVENTS as FALLBACK_EVENTS,
+  getEffectivePointTier,
+} from '../data/initialData';
 
 export interface EventStatsSummary {
   totalColleges: number;
@@ -1257,7 +1262,9 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           scoreA,
           scoreB,
           winnerCollegeId,
-          loserCollegeId
+          loserCollegeId,
+          false,
+          currentPalakasan?.scoringRules
         );
         updatedEvent.games = res.updatedGames;
         updatedEvent.eliminatedColleges = res.eliminated;
@@ -1288,7 +1295,9 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const rrResult = calculateRoundRobinStandings(
           event.participatingColleges,
           updatedGames,
-          event.tieBreakerRule || 'competition-points'
+          event.tieBreakerRule || 'competition-points',
+          event,
+          currentPalakasan?.scoringRules
         );
         updatedEvent.games = updatedGames;
         updatedEvent.roundRobinStats = rrResult.table;
@@ -1309,7 +1318,8 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           scoreA,
           scoreB,
           winnerCollegeId,
-          loserCollegeId
+          loserCollegeId,
+          currentPalakasan?.scoringRules
         );
         updatedEvent.games = res.updatedGames;
         if (res.champion) {
@@ -1577,8 +1587,8 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       // Optimistically update local transactions
       const nowStr = new Date().toISOString();
-      const isSpecialEvent = event.category === 'special' || event.pointTier === 'special';
-      const eventType = isSpecialEvent ? 'Special' : (event.isMajor || event.pointTier === 'major' ? 'Major' : 'Minor');
+      const resolvedTier = getEffectivePointTier(event, currentPalakasan?.scoringRules);
+      const eventType = resolvedTier === 'special' ? 'Special' : resolvedTier === 'major' ? 'Major' : 'Minor';
       const newTrans: PointTransaction[] = results.map(res => ({
         id: `pt-${event.id}-${res.collegeId}-${Date.now()}`,
         palakasanId: event.palakasanId || viewedPalakasanId || 'palakasan-2026',
@@ -1647,8 +1657,8 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       // Update local point transactions
       const nowStr = new Date().toISOString();
-      const isSpecialEvent = event.category === 'special' || event.pointTier === 'special';
-      const eventType = isSpecialEvent ? 'Special' : (event.isMajor || event.pointTier === 'major' ? 'Major' : 'Minor');
+      const resolvedTier = getEffectivePointTier(event, currentPalakasan?.scoringRules);
+      const eventType = resolvedTier === 'special' ? 'Special' : resolvedTier === 'major' ? 'Major' : 'Minor';
       const newTrans: PointTransaction[] = results.map(res => ({
         id: `pt-${event.id}-${res.collegeId}-${Date.now()}`,
         palakasanId: event.palakasanId || viewedPalakasanId || 'palakasan-2026',

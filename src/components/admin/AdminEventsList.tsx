@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { usePalakasan } from '../../context/PalakasanContext';
 import { CategoryId, EventStatus, PalakasanEvent } from '../../types';
-import { CATEGORIES } from '../../data/initialData';
+import { CATEGORIES, getEffectivePointTier, getEventPointsForPlacement } from '../../data/initialData';
 import { getCategoryMeta, getCollegeBadgeStyle } from '../../utils/collegeTheme';
 import { DeleteEventModal } from './DeleteEventModal';
 
@@ -42,7 +42,7 @@ export const AdminEventsList: React.FC<AdminEventsListProps> = ({
   onOpenEventDetail,
   onOpenEnterResult,
 }) => {
-  const { events, deleteEvent, startOngoingEvent, markEventCompleted } = usePalakasan();
+  const { events, currentPalakasan, deleteEvent, startOngoingEvent, markEventCompleted } = usePalakasan();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | 'all'>('all');
@@ -219,20 +219,34 @@ export const AdminEventsList: React.FC<AdminEventsListProps> = ({
                       <span className="text-[10px] font-semibold px-2 py-0.2 bg-slate-100 text-slate-600 rounded">
                         {event.eventType || 'Competition'}
                       </span>
-                      {event.category === 'special' || event.pointTier === 'special' ? (
-                        <span className="text-[10px] font-bold px-2 py-0.2 rounded bg-purple-100 text-purple-800 border border-purple-200 flex items-center gap-1">
-                          <Star className="w-2.5 h-2.5 fill-purple-700 text-purple-700" />
-                          <span>Special Tier</span>
-                        </span>
-                      ) : event.isMajor || event.pointTier === 'major' ? (
-                        <span className="text-[10px] font-bold px-2 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200">
-                          Major Tier
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-semibold px-2 py-0.2 rounded bg-slate-100 text-slate-600">
-                          Minor Tier
-                        </span>
-                      )}
+                      {(() => {
+                        const effectiveTier = getEffectivePointTier(event, currentPalakasan?.scoringRules);
+                        const topPts = getEventPointsForPlacement(
+                          '1st',
+                          { ...event, pointTier: effectiveTier },
+                          currentPalakasan?.scoringRules
+                        );
+                        if (event.category === 'sports' && effectiveTier === 'special') {
+                          return (
+                            <span className="text-[10px] font-bold px-2 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-200 flex items-center gap-1">
+                              <Star className="w-2.5 h-2.5 fill-amber-700 text-amber-700" />
+                              <span>Special Sports ({topPts} pts)</span>
+                            </span>
+                          );
+                        }
+                        if (effectiveTier === 'major') {
+                          return (
+                            <span className="text-[10px] font-bold px-2 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                              Major Tier ({topPts} pts)
+                            </span>
+                          );
+                        }
+                        return (
+                          <span className="text-[10px] font-semibold px-2 py-0.2 rounded bg-slate-100 text-slate-600">
+                            Minor Tier ({topPts} pts)
+                          </span>
+                        );
+                      })()}
                       <span
                         className={`text-[10px] font-bold px-2 py-0.2 rounded uppercase ${
                           event.status === 'ongoing'

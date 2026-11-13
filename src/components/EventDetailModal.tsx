@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Calendar, Clock, MapPin, Users, Award, Shield, CheckCircle2, Star, User, Phone } from 'lucide-react';
 import { usePalakasan } from '../context/PalakasanContext';
 import { CollegeId } from '../types';
+import { getEffectivePointTier } from '../data/initialData';
 import { getCategoryMeta, getCollegeBadgeStyle, getPlacementBadge } from '../utils/collegeTheme';
 
 interface EventDetailModalProps {
@@ -17,7 +18,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
   onOpenCollegeModal,
   onEnterResultClick,
 }) => {
-  const { events, isAdminLoggedIn } = usePalakasan();
+  const { events, currentPalakasan, isAdminLoggedIn } = usePalakasan();
 
   if (!eventId) return null;
 
@@ -25,7 +26,9 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
   if (!event) return null;
 
   const meta = getCategoryMeta(event.category);
-  const isSpecial = event.category === 'special' || event.pointTier === 'special';
+  const effectiveTier = getEffectivePointTier(event, currentPalakasan?.scoringRules);
+  const isSpecialSports = event.category === 'sports' && effectiveTier === 'special';
+  const isSpecialCategory = event.category === 'special';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/40 backdrop-blur-xs animate-fadeIn overflow-y-auto">
@@ -44,10 +47,17 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
                 <span className="uppercase tracking-wider text-[10px]">{meta.name}</span>
               </span>
 
-              {isSpecial && (
+              {isSpecialSports && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                  <Star className="w-3 h-3 fill-amber-700 text-amber-700" />
+                  <span>Special Sports</span>
+                </span>
+              )}
+
+              {!isSpecialSports && isSpecialCategory && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">
                   <Star className="w-3 h-3 fill-purple-700 text-purple-700" />
-                  <span>Special Event</span>
+                  <span>{effectiveTier === 'major' ? 'Major Special Event' : 'Minor Special Event'}</span>
                 </span>
               )}
 

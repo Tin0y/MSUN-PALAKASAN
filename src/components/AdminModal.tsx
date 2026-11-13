@@ -22,7 +22,7 @@ import {
   Placement,
   EventResultItem,
 } from '../types';
-import { OFFICIAL_POINTS, VENUES } from '../data/initialData';
+import { getEventPointsForPlacement, VENUES } from '../data/initialData';
 import { getCollegeBadgeStyle, getCategoryMeta } from '../utils/collegeTheme';
 
 interface AdminModalProps {
@@ -39,6 +39,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const {
     events,
     colleges,
+    currentPalakasan,
     isAdminLoggedIn,
     currentAccount,
     loginAdmin,
@@ -164,7 +165,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       return {
         collegeId,
         placement,
-        points: placement === 'DQ' ? 0 : OFFICIAL_POINTS[placement] ?? 0,
+        points: getEventPointsForPlacement(placement, event, currentPalakasan?.scoringRules),
         note: placement === 'DQ' ? dqNotes[collegeId] || 'Disqualified' : undefined,
       };
     });
@@ -364,28 +365,41 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               {/* TAB 1: RESULT ENTRY */}
               {activeTab === 'results' && (
                 <div className="space-y-5 max-w-2xl mx-auto">
-                  <div className="bg-blue-50/70 p-4 rounded-xl border border-blue-200">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-blue-900 mb-1.5">
-                      Official Scoring System (Section 3)
-                    </h3>
-                    <div className="grid grid-cols-5 gap-2 text-center text-xs">
-                      <div className="bg-white border border-amber-200 p-2 rounded-lg text-amber-900 font-bold">
-                        🥇 1st: 50 pts
+                  {(() => {
+                    const activeEvent = selectedEventId
+                      ? events.find(e => e.id === selectedEventId)
+                      : undefined;
+                    const p1 = getEventPointsForPlacement('1st', activeEvent, currentPalakasan?.scoringRules);
+                    const p2 = getEventPointsForPlacement('2nd', activeEvent, currentPalakasan?.scoringRules);
+                    const p3 = getEventPointsForPlacement('3rd', activeEvent, currentPalakasan?.scoringRules);
+                    const p4 = getEventPointsForPlacement('4th', activeEvent, currentPalakasan?.scoringRules);
+                    return (
+                      <div className="bg-blue-50/70 p-4 rounded-xl border border-blue-200">
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-blue-900 mb-1.5">
+                          {activeEvent
+                            ? `Official Scoring Scale — ${activeEvent.eventName} (${activeEvent.category.toUpperCase()})`
+                            : 'Official Scoring System (Select an event to preview its category scale)'}
+                        </h3>
+                        <div className="grid grid-cols-5 gap-2 text-center text-xs">
+                          <div className="bg-white border border-amber-200 p-2 rounded-lg text-amber-900 font-bold">
+                            🥇 1st: {p1} pts
+                          </div>
+                          <div className="bg-white border border-slate-200 p-2 rounded-lg text-slate-700 font-bold">
+                            🥈 2nd: {p2} pts
+                          </div>
+                          <div className="bg-white border border-amber-200 p-2 rounded-lg text-amber-900 font-bold">
+                            🥉 3rd: {p3} pts
+                          </div>
+                          <div className="bg-white border border-slate-200 p-2 rounded-lg text-slate-600 font-bold">
+                            4th: {p4} pts
+                          </div>
+                          <div className="bg-white border border-rose-200 p-2 rounded-lg text-rose-700 font-bold">
+                            🚫 DQ: 0 pts
+                          </div>
+                        </div>
                       </div>
-                      <div className="bg-white border border-slate-200 p-2 rounded-lg text-slate-700 font-bold">
-                        🥈 2nd: 40 pts
-                      </div>
-                      <div className="bg-white border border-amber-200 p-2 rounded-lg text-amber-900 font-bold">
-                        🥉 3rd: 30 pts
-                      </div>
-                      <div className="bg-white border border-slate-200 p-2 rounded-lg text-slate-600 font-bold">
-                        4th: 20 pts
-                      </div>
-                      <div className="bg-white border border-rose-200 p-2 rounded-lg text-rose-700 font-bold">
-                        🚫 DQ: 0 pts
-                      </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
 
                   <form onSubmit={handleSubmitResults} className="space-y-4">
                     {/* Event Select */}
@@ -423,13 +437,20 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                             const event = events.find(e => e.id === selectedEventId);
                             if (!event) return null;
                             const participants = event.participatingColleges;
+                            const p1 = getEventPointsForPlacement('1st', event, currentPalakasan?.scoringRules);
+                            const p2 = getEventPointsForPlacement('2nd', event, currentPalakasan?.scoringRules);
+                            const p3 = getEventPointsForPlacement('3rd', event, currentPalakasan?.scoringRules);
+                            const p4 = getEventPointsForPlacement('4th', event, currentPalakasan?.scoringRules);
 
                             return participants.map(collegeId => {
                               const college = colleges.find(c => c.id === collegeId);
                               const currentPlacement = placementsState[collegeId];
                               const style = getCollegeBadgeStyle(collegeId);
-                              const pointsAssigned =
-                                currentPlacement === 'DQ' ? 0 : OFFICIAL_POINTS[currentPlacement];
+                              const pointsAssigned = getEventPointsForPlacement(
+                                currentPlacement,
+                                event,
+                                currentPalakasan?.scoringRules
+                              );
 
                               return (
                                 <div
@@ -464,10 +485,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                                       }
                                       className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500"
                                     >
-                                      <option value="1st">🥇 1st Place (50 pts)</option>
-                                      <option value="2nd">🥈 2nd Place (40 pts)</option>
-                                      <option value="3rd">🥉 3rd Place (30 pts)</option>
-                                      <option value="4th">4th Place (20 pts)</option>
+                                      <option value="1st">🥇 1st Place ({p1} pts)</option>
+                                      <option value="2nd">🥈 2nd Place ({p2} pts)</option>
+                                      <option value="3rd">🥉 3rd Place ({p3} pts)</option>
+                                      <option value="4th">4th Place ({p4} pts)</option>
                                       <option value="DQ">🚫 Disqualified / DQ (0 pts)</option>
                                     </select>
 

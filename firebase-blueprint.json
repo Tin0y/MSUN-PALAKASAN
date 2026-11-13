@@ -17,7 +17,7 @@
         },
         "participatingColleges": { "type": "list", "description": "List of college IDs" },
         "eventCategories": { "type": "list", "description": "List of category IDs" },
-        "scoringRules": { "type": "map", "description": "Major and minor point configuration" },
+        "scoringRules": { "type": "map", "description": "Separated per-category point configuration (byCategory.sports with major/minor/special/disciplinePoints; byCategory.cultural, literary, and special with major/minor and useMinorTier)" },
         "competitionRules": { "type": "map", "description": "Competition formats and tie-breaking options" },
         "createdAt": { "type": "string", "description": "Creation ISO date string" },
         "updatedAt": { "type": "string", "description": "Last update ISO date string" }

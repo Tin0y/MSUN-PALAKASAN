@@ -33,11 +33,32 @@ export interface DisciplinePointsConfig {
   DQ: number;
 }
 
+export interface StandardCategoryScoringRule {
+  majorPoints: Record<Placement, number>;
+  minorPoints: Record<Placement, number>;
+  useMinorTier?: boolean; // true = Major & Minor tiers; false = Major Points Only
+}
+
+export interface SportsScoringRule {
+  majorPoints: Record<Placement, number>;
+  minorPoints: Record<Placement, number>;
+  specialPoints: Record<Placement, number>; // Special Sports (e.g. Arnis, Swimming, Athletics)
+  disciplinePoints: DisciplinePointsConfig; // Sub-category heats (10-8-6-4-2-0)
+}
+
+export interface CategoryScoringRulesMap {
+  sports: SportsScoringRule;
+  cultural: StandardCategoryScoringRule;
+  literary: StandardCategoryScoringRule;
+  special: StandardCategoryScoringRule; // Special Events category (Major & Minor OR Major Only, distinct from Special Sports)
+}
+
 export interface ScoringRulesConfig {
   majorPoints: Record<Placement, number>;
   minorPoints: Record<Placement, number>;
   specialPoints?: Record<Placement, number>;
   disciplinePoints?: DisciplinePointsConfig;
+  byCategory?: CategoryScoringRulesMap;
 }
 
 export type PointTier = 'major' | 'minor' | 'special';

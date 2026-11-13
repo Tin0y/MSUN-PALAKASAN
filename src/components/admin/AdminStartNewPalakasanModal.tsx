@@ -26,12 +26,19 @@ import { usePalakasan } from '../../context/PalakasanContext';
 import {
   PalakasanEdition,
   CategoryId,
+  CategoryScoringRulesMap,
   CollegeId,
   CompetitionFormat,
   PointTier,
   PalakasanEvent,
-  DisciplinePointsConfig,
+  ScoringRulesConfig,
 } from '../../types';
+import {
+  DEFAULT_BY_CATEGORY_SCORING,
+  getAllowedTiersForCategory,
+  getEffectivePointTier,
+  getEventPointsForPlacement,
+} from '../../data/initialData';
 
 interface AdminStartNewPalakasanModalProps {
   isOpen: boolean;
@@ -257,10 +264,10 @@ const PRESET_CHIPS_BY_CATEGORY: Record<
   ],
   special: [
     { name: 'Cheerdance Competition', format: 'individual', tier: 'major', venue: 'Grand Gymnasium / Oval' },
-    { name: 'Mr. and Ms. PALAKASAN', format: 'individual', tier: 'special', venue: 'TSAC Gymnasium' },
-    { name: 'Arnis Championship Meet', format: 'custom', tier: 'special', venue: 'TSAC Gymnasium' },
-    { name: 'Swimming Championship Meet', format: 'custom', tier: 'special', venue: 'University Aquatic Center' },
+    { name: 'Mr. and Ms. PALAKASAN', format: 'individual', tier: 'major', venue: 'TSAC Gymnasium' },
+    { name: 'Tough Model Showcase', format: 'individual', tier: 'major', venue: 'TSAC Gymnasium' },
     { name: 'Laro ng Lahi (Tug of War)', format: 'head-to-head', tier: 'minor', venue: 'University Grounds' },
+    { name: 'Opening Saludo & Parade', format: 'individual', tier: 'minor', venue: 'University Oval' },
   ],
 };
 
@@ -305,41 +312,19 @@ export const AdminStartNewPalakasanModal: React.FC<AdminStartNewPalakasanModalPr
     'special',
   ]);
 
-  // Step 5: Scoring Rules
-  const [majorPoints, setMajorPoints] = useState({
-    '1st': 50,
-    '2nd': 40,
-    '3rd': 30,
-    '4th': 20,
-    DQ: 0,
-  });
+  // Step 5: Separated Per-Category Scoring Rules
+  const [byCategoryScoring, setByCategoryScoring] = useState<CategoryScoringRulesMap>(() =>
+    JSON.parse(JSON.stringify(DEFAULT_BY_CATEGORY_SCORING))
+  );
+  const [activeScoringCatTab, setActiveScoringCatTab] = useState<CategoryId>('sports');
 
-  const [minorPoints, setMinorPoints] = useState({
-    '1st': 30,
-    '2nd': 20,
-    '3rd': 15,
-    '4th': 10,
-    DQ: 0,
-  });
-
-  const [specialPoints, setSpecialPoints] = useState({
-    '1st': 60,
-    '2nd': 45,
-    '3rd': 30,
-    '4th': 20,
-    DQ: 0,
-  });
-
-  // Multi-category sub-event points (Arnis, Swimming, Athletics, etc.)
-  const [disciplinePoints, setDisciplinePoints] = useState<DisciplinePointsConfig>({
-    '1st': 10,
-    '2nd': 8,
-    '3rd': 6,
-    '4th': 4,
-    '5th': 2,
-    '6th': 0,
-    DQ: 0,
-  });
+  const currentStep5Rules: ScoringRulesConfig = {
+    majorPoints: byCategoryScoring.sports.majorPoints,
+    minorPoints: byCategoryScoring.sports.minorPoints,
+    specialPoints: byCategoryScoring.sports.specialPoints,
+    disciplinePoints: byCategoryScoring.sports.disciplinePoints,
+    byCategory: byCategoryScoring,
+  };
 
   // Step 6: Events Identification State (REQUIRED)
   // Initialize with the standard recommended events for selected categories
@@ -401,12 +386,18 @@ export const AdminStartNewPalakasanModal: React.FC<AdminStartNewPalakasanModalPr
       return;
     }
 
+    const targetCat = activeCategoryTab === 'all' ? newEventCategory : activeCategoryTab;
+    const resolvedTier = getEffectivePointTier(
+      { category: targetCat, pointTier: newEventTier },
+      currentStep5Rules
+    );
+
     const newEvent: InitialEventConfig = {
       tempId: `custom-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       eventName: newEventName.trim(),
-      category: newEventCategory,
+      category: targetCat,
       competitionFormat: newEventFormat,
-      pointTier: newEventTier,
+      pointTier: resolvedTier,
       venue: newEventVenue.trim() || venues[0]?.name || 'Campus Grounds',
       personInCharge: newEventPersonInCharge.trim(),
       contactNumber: newEventContactNumber.trim(),
@@ -433,12 +424,18 @@ export const AdminStartNewPalakasanModal: React.FC<AdminStartNewPalakasanModalPr
       return;
     }
 
+    const targetCat = activeCategoryTab === 'all' ? newEventCategory : activeCategoryTab;
+    const resolvedTier = getEffectivePointTier(
+      { category: targetCat, pointTier: chip.tier },
+      currentStep5Rules
+    );
+
     const newEvent: InitialEventConfig = {
       tempId: `chip-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       eventName: chip.name,
-      category: activeCategoryTab === 'all' ? newEventCategory : activeCategoryTab,
+      category: targetCat,
       competitionFormat: chip.format,
-      pointTier: chip.tier,
+      pointTier: resolvedTier,
       venue: chip.venue,
       description: `${chip.name} competition for ${name}`,
     };
@@ -480,8 +477,16 @@ export const AdminStartNewPalakasanModal: React.FC<AdminStartNewPalakasanModalPr
         setError('Please select at least one event category.');
         return;
       }
+      if (!selectedCategories.includes(activeScoringCatTab)) {
+        setActiveScoringCatTab(selectedCategories[0]);
+      }
       setStep(5);
     } else if (step === 5) {
+      const targetCat = activeCategoryTab === 'all' ? newEventCategory : activeCategoryTab;
+      const allowed = getAllowedTiersForCategory(targetCat, currentStep5Rules);
+      if (!allowed.some(opt => opt.value === newEventTier)) {
+        setNewEventTier(allowed[0]?.value || 'major');
+      }
       setStep(6);
     } else if (step === 6) {
       // MANDATORY VALIDATION: Check that each selected category has at least 1 event identified!
@@ -573,12 +578,7 @@ export const AdminStartNewPalakasanModal: React.FC<AdminStartNewPalakasanModalPr
         },
         participatingColleges: selectedColleges,
         eventCategories: selectedCategories,
-        scoringRules: {
-          majorPoints,
-          minorPoints,
-          specialPoints,
-          disciplinePoints,
-        },
+        scoringRules: currentStep5Rules,
         competitionRules: {
           availableFormats: usedFormats,
           tieBreakers: ['competition-points', 'head-to-head', 'score-difference'],
@@ -587,30 +587,36 @@ export const AdminStartNewPalakasanModal: React.FC<AdminStartNewPalakasanModalPr
         updatedAt: new Date().toISOString(),
       };
 
-      // Construct initial events with chosen tournament formats
+      // Construct initial events with chosen tournament formats and category-validated point tiers
       const initialEventsPayload: Omit<PalakasanEvent, 'id' | 'palakasanId'>[] = eventsList.map(
-        ev => ({
-          eventName: ev.eventName,
-          category: ev.category,
-          competitionFormat: ev.competitionFormat,
-          pointTier: ev.pointTier,
-          isMajor: ev.pointTier === 'major',
-          venue: ev.venue || (venues[0]?.name || 'Campus Court'),
-          personInCharge: ev.personInCharge || '',
-          contactNumber: ev.contactNumber || '',
-          date: startDate,
-          startTime: '08:00 AM',
-          endTime: '11:00 AM',
-          description: ev.description || `${ev.eventName} competition for ${name}`,
-          status: 'upcoming',
-          participatingColleges: selectedColleges,
-          eventType:
-            ev.competitionFormat === 'head-to-head'
-              ? 'Head-to-Head / Match'
-              : ev.competitionFormat === 'individual'
-              ? 'Individual'
-              : 'Team',
-        })
+        ev => {
+          const effectiveTier = getEffectivePointTier(
+            { category: ev.category, pointTier: ev.pointTier },
+            currentStep5Rules
+          );
+          return {
+            eventName: ev.eventName,
+            category: ev.category,
+            competitionFormat: ev.competitionFormat,
+            pointTier: effectiveTier,
+            isMajor: effectiveTier !== 'minor',
+            venue: ev.venue || (venues[0]?.name || 'Campus Court'),
+            personInCharge: ev.personInCharge || '',
+            contactNumber: ev.contactNumber || '',
+            date: startDate,
+            startTime: '08:00 AM',
+            endTime: '11:00 AM',
+            description: ev.description || `${ev.eventName} competition for ${name}`,
+            status: 'upcoming',
+            participatingColleges: selectedColleges,
+            eventType:
+              ev.competitionFormat === 'head-to-head'
+                ? 'Head-to-Head / Match'
+                : ev.competitionFormat === 'individual'
+                ? 'Individual'
+                : 'Team',
+          };
+        }
       );
 
       // Create Palakasan edition AND all its identified events in Firestore
@@ -1008,130 +1014,391 @@ export const AdminStartNewPalakasanModal: React.FC<AdminStartNewPalakasanModalPr
             </div>
           )}
 
-          {/* STEP 5: Scoring Configuration */}
+          {/* STEP 5: Separated Per-Category Scoring Configuration */}
           {step === 5 && (
-            <div className="space-y-6">
-              {/* Special Multi-Category Explanation Banner */}
-              <div className="p-4 rounded-xl bg-purple-50/90 border border-purple-200 text-xs space-y-2">
-                <div className="flex items-center gap-2 font-bold text-purple-900">
-                  <Star className="w-4 h-4 text-purple-700 fill-purple-700" />
-                  <span>Special & Multi-Category Point Systems Configured</span>
+            <div className="space-y-5">
+              {/* Overview Explainer */}
+              <div className="p-4 rounded-xl bg-blue-50/80 border border-blue-200 text-xs space-y-1.5">
+                <div className="flex items-center gap-2 font-bold text-blue-950">
+                  <ShieldCheck className="w-4 h-4 text-blue-600" />
+                  <span>Separated Point Systems Per Category</span>
                 </div>
-                <p className="text-purple-900 leading-relaxed">
-                  For complex multi-discipline competitions like <strong>Arnis</strong> and <strong>Swimming</strong>, individual categories/events award points on a <strong>10, 8, 6, 4, 2, 0</strong> scale. All category points earned per college are accumulated; the college with the highest accumulated score becomes the overall champion (1st place) and so on.
+                <p className="text-blue-900 leading-relaxed">
+                  Each competition pillar has its own independent point scale. <strong>Sports Events</strong> uses 3 tiers (<strong>Major Sports</strong>, <strong>Minor Sports</strong>, and <strong>Special Sports</strong> like Arnis & Swimming), whereas <strong>Cultural & Arts</strong>, <strong>Literary</strong>, and <strong>Special Events</strong> can each use <strong>Major & Minor</strong> tiers or <strong>Major Points Only</strong>.
                 </p>
               </div>
 
-              {/* Special Event Championship Scale */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                    <Star className="w-3.5 h-3.5 text-purple-600 fill-purple-600" />
-                    <span>Special Event Championship Scale (Arnis, Swimming, Mr. & Ms. Palakasan)</span>
-                  </h4>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-800">
-                    Max: {specialPoints['1st']} pts
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-500 mb-2">
-                  Final overall championship points awarded to colleges based on accumulated rank.
-                </p>
-                <div className="grid grid-cols-5 gap-2">
-                  {(['1st', '2nd', '3rd', '4th', 'DQ'] as const).map(p => (
-                    <div key={p} className="p-2.5 bg-purple-50/50 rounded-xl border border-purple-200 text-center">
-                      <span className="text-[10px] font-bold text-purple-700 block uppercase">{p} Place</span>
-                      <input
-                        type="number"
-                        value={specialPoints[p]}
-                        onChange={e =>
-                          setSpecialPoints(prev => ({ ...prev, [p]: Number(e.target.value) }))
-                        }
-                        className="w-full text-center mt-1 font-bold text-purple-900 bg-white border border-purple-300 rounded-lg py-1 text-sm focus:ring-2 focus:ring-purple-500"
-                      />
+              {/* Category Tabs */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {selectedCategories.map(catId => {
+                  const isActive = activeScoringCatTab === catId;
+                  const label =
+                    catId === 'sports'
+                      ? 'Sports Events'
+                      : catId === 'cultural'
+                      ? 'Cultural & Arts'
+                      : catId === 'literary'
+                      ? 'Literary Events'
+                      : 'Special Events';
+                  const subText =
+                    catId === 'sports'
+                      ? '3 Tiers + Sub-Disciplines'
+                      : byCategoryScoring[catId].useMinorTier !== false
+                      ? 'Major & Minor Tiers'
+                      : 'Major Points Only';
+
+                  return (
+                    <button
+                      key={catId}
+                      type="button"
+                      onClick={() => setActiveScoringCatTab(catId)}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        isActive
+                          ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 text-xs font-bold">
+                        {getCategoryIcon(catId)}
+                        <span>{label}</span>
+                      </div>
+                      <div
+                        className={`text-[10px] mt-1 font-medium ${
+                          isActive ? 'text-slate-300' : 'text-slate-500'
+                        }`}
+                      >
+                        {subText}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* SPORTS EVENTS TAB (3 TIERS + MULTI-CATEGORY DISCIPLINES) */}
+              {activeScoringCatTab === 'sports' && selectedCategories.includes('sports') && (
+                <div className="space-y-5">
+                  {/* Major Sports */}
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                          <Award className="w-3.5 h-3.5 text-blue-600" />
+                          <span>Major Sports Scale (Basketball, Volleyball)</span>
+                        </h4>
+                        <p className="text-[11px] text-slate-500">
+                          Tier 1 athletic team championships under Sports Events.
+                        </p>
+                      </div>
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800">
+                        Max: {byCategoryScoring.sports.majorPoints['1st']} pts
+                      </span>
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Multi-Category Discipline Points (10-8-6-4-2-0) */}
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                      <Zap className="w-3.5 h-3.5 text-amber-600" />
-                      <span>Sub-Category / Discipline Point System (Arnis & Swimming Heats)</span>
-                    </h4>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      Points earned by colleges in each sub-category (Anyo, Laban weight classes, 50m Free, etc.)
-                    </p>
+                    <div className="grid grid-cols-5 gap-2">
+                      {(['1st', '2nd', '3rd', '4th', 'DQ'] as const).map(p => (
+                        <div key={p} className="p-2 bg-white rounded-xl border border-slate-200 text-center">
+                          <span className="text-[10px] font-bold text-slate-500 block uppercase">{p}</span>
+                          <input
+                            type="number"
+                            value={byCategoryScoring.sports.majorPoints[p]}
+                            onChange={e =>
+                              setByCategoryScoring(prev => ({
+                                ...prev,
+                                sports: {
+                                  ...prev.sports,
+                                  majorPoints: { ...prev.sports.majorPoints, [p]: Number(e.target.value) },
+                                },
+                              }))
+                            }
+                            className="w-full text-center mt-1 font-bold text-slate-900 bg-slate-50 border border-slate-300 rounded-lg py-1 text-sm"
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900">
-                    10-8-6-4-2-0 Standard
-                  </span>
-                </div>
 
-                <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
-                  {(['1st', '2nd', '3rd', '4th', '5th', '6th', 'DQ'] as const).map(p => (
-                    <div key={p} className="p-2 bg-white rounded-xl border border-slate-200 text-center shadow-2xs">
-                      <span className="text-[10px] font-bold text-slate-500 block uppercase">{p}</span>
-                      <input
-                        type="number"
-                        value={disciplinePoints[p]}
-                        onChange={e =>
-                          setDisciplinePoints(prev => ({ ...prev, [p]: Number(e.target.value) }))
-                        }
-                        className="w-full text-center mt-1 font-mono font-extrabold text-slate-900 bg-slate-50 border border-slate-200 rounded-lg py-1 text-xs"
-                      />
+                  {/* Minor Sports */}
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                          <Layers className="w-3.5 h-3.5 text-slate-600" />
+                          <span>Minor Sports Scale (Badminton, Table Tennis, Chess, Sepak Takraw)</span>
+                        </h4>
+                        <p className="text-[11px] text-slate-500">
+                          Tier 2 athletic competitions under Sports Events.
+                        </p>
+                      </div>
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-800">
+                        Max: {byCategoryScoring.sports.minorPoints['1st']} pts
+                      </span>
                     </div>
-                  ))}
-                </div>
-              </div>
+                    <div className="grid grid-cols-5 gap-2">
+                      {(['1st', '2nd', '3rd', '4th', 'DQ'] as const).map(p => (
+                        <div key={p} className="p-2 bg-white rounded-xl border border-slate-200 text-center">
+                          <span className="text-[10px] font-bold text-slate-500 block uppercase">{p}</span>
+                          <input
+                            type="number"
+                            value={byCategoryScoring.sports.minorPoints[p]}
+                            onChange={e =>
+                              setByCategoryScoring(prev => ({
+                                ...prev,
+                                sports: {
+                                  ...prev.sports,
+                                  minorPoints: { ...prev.sports.minorPoints, [p]: Number(e.target.value) },
+                                },
+                              }))
+                            }
+                            className="w-full text-center mt-1 font-bold text-slate-900 bg-slate-50 border border-slate-300 rounded-lg py-1 text-sm"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
 
-              {/* Major Event Point Scale */}
-              <div>
-                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <Award className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Major Event Point Scale (e.g. Basketball, Volleyball)</span>
-                </h4>
-                <div className="grid grid-cols-5 gap-2">
-                  {(['1st', '2nd', '3rd', '4th', 'DQ'] as const).map(p => (
-                    <div key={p} className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-center">
-                      <span className="text-[10px] font-bold text-slate-500 block uppercase">{p} Place</span>
-                      <input
-                        type="number"
-                        value={majorPoints[p]}
-                        onChange={e =>
-                          setMajorPoints(prev => ({ ...prev, [p]: Number(e.target.value) }))
-                        }
-                        className="w-full text-center mt-1 font-bold text-slate-900 bg-white border border-slate-300 rounded-lg py-1 text-sm"
-                      />
+                  {/* Special Sports (Arnis, Swimming, Athletics) */}
+                  <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xs font-bold text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
+                          <Swords className="w-3.5 h-3.5 text-amber-700" />
+                          <span>Special Sports Championship Scale (Arnis, Swimming, Athletics)</span>
+                        </h4>
+                        <p className="text-[11px] text-amber-900/80">
+                          Sports-specific special tier (separate from the Special Events category). Awarded to overall rank after accumulating sub-discipline points.
+                        </p>
+                      </div>
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-200 text-amber-900">
+                        Max: {byCategoryScoring.sports.specialPoints['1st']} pts
+                      </span>
                     </div>
-                  ))}
-                </div>
-              </div>
+                    <div className="grid grid-cols-5 gap-2">
+                      {(['1st', '2nd', '3rd', '4th', 'DQ'] as const).map(p => (
+                        <div key={p} className="p-2 bg-white rounded-xl border border-amber-200 text-center">
+                          <span className="text-[10px] font-bold text-amber-800 block uppercase">{p}</span>
+                          <input
+                            type="number"
+                            value={byCategoryScoring.sports.specialPoints[p]}
+                            onChange={e =>
+                              setByCategoryScoring(prev => ({
+                                ...prev,
+                                sports: {
+                                  ...prev.sports,
+                                  specialPoints: { ...prev.sports.specialPoints, [p]: Number(e.target.value) },
+                                },
+                              }))
+                            }
+                            className="w-full text-center mt-1 font-bold text-amber-950 bg-amber-50/40 border border-amber-300 rounded-lg py-1 text-sm"
+                          />
+                        </div>
+                      ))}
+                    </div>
 
-              {/* Minor Event Point Scale */}
-              <div>
-                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-slate-600" />
-                  <span>Minor Event Point Scale (e.g. Table Tennis, Badminton, Quiz Bowl, Oration)</span>
-                </h4>
-                <div className="grid grid-cols-5 gap-2">
-                  {(['1st', '2nd', '3rd', '4th', 'DQ'] as const).map(p => (
-                    <div key={p} className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-center">
-                      <span className="text-[10px] font-bold text-slate-500 block uppercase">{p} Place</span>
-                      <input
-                        type="number"
-                        value={minorPoints[p]}
-                        onChange={e =>
-                          setMinorPoints(prev => ({ ...prev, [p]: Number(e.target.value) }))
-                        }
-                        className="w-full text-center mt-1 font-bold text-slate-900 bg-white border border-slate-300 rounded-lg py-1 text-sm"
-                      />
+                    {/* Sub-Category / Discipline Points (10-8-6-4-2-0) */}
+                    <div className="pt-2 border-t border-amber-200/70 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-amber-950">
+                          Sub-Category / Discipline Point System (Arnis Anyo/Laban & Swimming Heats)
+                        </span>
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-white border border-amber-200 text-amber-900">
+                          10-8-6-4-2-0 Standard
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+                        {(['1st', '2nd', '3rd', '4th', '5th', '6th', 'DQ'] as const).map(p => (
+                          <div key={p} className="p-2 bg-white rounded-xl border border-amber-200 text-center">
+                            <span className="text-[10px] font-bold text-slate-500 block uppercase">{p}</span>
+                            <input
+                              type="number"
+                              value={byCategoryScoring.sports.disciplinePoints[p]}
+                              onChange={e =>
+                                setByCategoryScoring(prev => ({
+                                  ...prev,
+                                  sports: {
+                                    ...prev.sports,
+                                    disciplinePoints: {
+                                      ...prev.sports.disciplinePoints,
+                                      [p]: Number(e.target.value),
+                                    },
+                                  },
+                                }))
+                              }
+                              className="w-full text-center mt-1 font-mono font-extrabold text-slate-900 bg-slate-50 border border-slate-200 rounded-lg py-1 text-xs"
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  ))}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* CULTURAL, LITERARY, AND SPECIAL EVENTS TABS */}
+              {activeScoringCatTab !== 'sports' && selectedCategories.includes(activeScoringCatTab) && (() => {
+                const catKey = activeScoringCatTab as 'cultural' | 'literary' | 'special';
+                const rule = byCategoryScoring[catKey];
+                const meta =
+                  catKey === 'cultural'
+                    ? {
+                        title: 'Cultural & Arts Events Point System',
+                        desc: 'Independent scoring rules for Folk Dance, Hip-Hop Dance, Vocal Solo, Pop Solo, and Acoustic Showcase.',
+                        majorLabel: 'Major Cultural & Arts Points (e.g. Folk Dance, Hip-Hop)',
+                        minorLabel: 'Minor Cultural & Arts Points (e.g. Vocal Solo, Pop Solo)',
+                        accentBorder: 'border-emerald-200',
+                        accentBg: 'bg-emerald-50/50',
+                        accentText: 'text-emerald-900',
+                      }
+                    : catKey === 'literary'
+                    ? {
+                        title: 'Literary Events Point System',
+                        desc: 'Independent scoring rules for Debate, Quiz Bowl, Oration, Extemporaneous Speech, and Poetry.',
+                        majorLabel: 'Major Literary Points (e.g. Quiz Bowl, Debate)',
+                        minorLabel: 'Minor Literary Points (e.g. Oration, Spoken Word, Essay)',
+                        accentBorder: 'border-indigo-200',
+                        accentBg: 'bg-indigo-50/50',
+                        accentText: 'text-indigo-900',
+                      }
+                    : {
+                        title: 'Special Events Point System (Separate from Sports)',
+                        desc: 'Dedicated point system for university spectacles (Mr. & Ms. PALAKASAN, Cheerdance, Tough Model, Laro ng Lahi). Can use Major & Minor tiers or Major Points Only.',
+                        majorLabel: 'Major Special Events Points (e.g. Mr. & Ms. PALAKASAN, Cheerdance)',
+                        minorLabel: 'Minor Special Events Points (e.g. Laro ng Lahi, Opening Saludo)',
+                        accentBorder: 'border-purple-200',
+                        accentBg: 'bg-purple-50/50',
+                        accentText: 'text-purple-900',
+                      };
+
+                return (
+                  <div className="space-y-4">
+                    {/* Structure Mode Selector: Major & Minor vs Major Points Only */}
+                    <div className={`p-4 rounded-xl border ${meta.accentBorder} ${meta.accentBg} space-y-3`}>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <h4 className={`text-xs font-extrabold uppercase tracking-wider ${meta.accentText}`}>
+                            {meta.title}
+                          </h4>
+                          <p className="text-[11px] text-slate-600 mt-0.5">{meta.desc}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setByCategoryScoring(prev => ({
+                              ...prev,
+                              [catKey]: { ...prev[catKey], useMinorTier: true },
+                            }))
+                          }
+                          className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                            rule.useMinorTier !== false
+                              ? 'bg-white border-blue-600 ring-2 ring-blue-600/20 text-slate-900'
+                              : 'bg-white/60 border-slate-200 text-slate-600 hover:bg-white'
+                          }`}
+                        >
+                          <div className="text-xs font-bold">Major & Minor Point Tiers</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5">
+                            Separate point scales for flagship and secondary contests in this pillar.
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setByCategoryScoring(prev => ({
+                              ...prev,
+                              [catKey]: { ...prev[catKey], useMinorTier: false },
+                            }))
+                          }
+                          className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                            rule.useMinorTier === false
+                              ? 'bg-white border-blue-600 ring-2 ring-blue-600/20 text-slate-900'
+                              : 'bg-white/60 border-slate-200 text-slate-600 hover:bg-white'
+                          }`}
+                        >
+                          <div className="text-xs font-bold">Major Points System Only</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5">
+                            Every event in this pillar uses one unified Major point scale.
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Major Scale */}
+                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                          <Star className="w-3.5 h-3.5 text-blue-600" />
+                          <span>
+                            {rule.useMinorTier === false
+                              ? `Unified Major Points Scale (${catKey.toUpperCase()})`
+                              : meta.majorLabel}
+                          </span>
+                        </h4>
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800">
+                          Max: {rule.majorPoints['1st']} pts
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-5 gap-2">
+                        {(['1st', '2nd', '3rd', '4th', 'DQ'] as const).map(p => (
+                          <div key={p} className="p-2 bg-white rounded-xl border border-slate-200 text-center">
+                            <span className="text-[10px] font-bold text-slate-500 block uppercase">{p} Place</span>
+                            <input
+                              type="number"
+                              value={rule.majorPoints[p]}
+                              onChange={e =>
+                                setByCategoryScoring(prev => ({
+                                  ...prev,
+                                  [catKey]: {
+                                    ...prev[catKey],
+                                    majorPoints: { ...prev[catKey].majorPoints, [p]: Number(e.target.value) },
+                                  },
+                                }))
+                              }
+                              className="w-full text-center mt-1 font-bold text-slate-900 bg-slate-50 border border-slate-300 rounded-lg py-1 text-sm"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Minor Scale (Only when useMinorTier is true) */}
+                    {rule.useMinorTier !== false && (
+                      <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                            <Layers className="w-3.5 h-3.5 text-slate-600" />
+                            <span>{meta.minorLabel}</span>
+                          </h4>
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-800">
+                            Max: {rule.minorPoints['1st']} pts
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-5 gap-2">
+                          {(['1st', '2nd', '3rd', '4th', 'DQ'] as const).map(p => (
+                            <div key={p} className="p-2 bg-white rounded-xl border border-slate-200 text-center">
+                              <span className="text-[10px] font-bold text-slate-500 block uppercase">{p} Place</span>
+                              <input
+                                type="number"
+                                value={rule.minorPoints[p]}
+                                onChange={e =>
+                                  setByCategoryScoring(prev => ({
+                                    ...prev,
+                                    [catKey]: {
+                                      ...prev[catKey],
+                                      minorPoints: { ...prev[catKey].minorPoints, [p]: Number(e.target.value) },
+                                    },
+                                  }))
+                                }
+                                className="w-full text-center mt-1 font-bold text-slate-900 bg-slate-50 border border-slate-300 rounded-lg py-1 text-sm"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -1212,6 +1479,10 @@ export const AdminStartNewPalakasanModal: React.FC<AdminStartNewPalakasanModalPr
                         onClick={() => {
                           setActiveCategoryTab(catId);
                           setNewEventCategory(catId);
+                          const allowed = getAllowedTiersForCategory(catId, currentStep5Rules);
+                          if (!allowed.some(opt => opt.value === newEventTier)) {
+                            setNewEventTier(allowed[0]?.value || 'major');
+                          }
                         }}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize flex items-center gap-1.5 transition-colors ${
                           activeCategoryTab === catId
@@ -1302,7 +1573,14 @@ export const AdminStartNewPalakasanModal: React.FC<AdminStartNewPalakasanModalPr
                     </label>
                     <select
                       value={activeCategoryTab === 'all' ? newEventCategory : activeCategoryTab}
-                      onChange={e => setNewEventCategory(e.target.value as CategoryId)}
+                      onChange={e => {
+                        const cat = e.target.value as CategoryId;
+                        setNewEventCategory(cat);
+                        const allowed = getAllowedTiersForCategory(cat, currentStep5Rules);
+                        if (!allowed.some(opt => opt.value === newEventTier)) {
+                          setNewEventTier(allowed[0]?.value || 'major');
+                        }
+                      }}
                       disabled={activeCategoryTab !== 'all'}
                       className="w-full px-2.5 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-900 capitalize focus:outline-hidden focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100"
                     >
@@ -1332,21 +1610,32 @@ export const AdminStartNewPalakasanModal: React.FC<AdminStartNewPalakasanModalPr
                     </select>
                   </div>
 
-                  {/* Point Tier */}
+                  {/* Point Tier (Scoped strictly to active category) */}
                   <div className="sm:col-span-3 flex items-end gap-1.5">
                     <div className="flex-1">
                       <label className="block text-[11px] font-bold text-slate-700 mb-1">
                         Point Tier
                       </label>
-                      <select
-                        value={newEventTier}
-                        onChange={e => setNewEventTier(e.target.value as PointTier)}
-                        className="w-full px-2.5 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="major">Major (50 pts)</option>
-                        <option value="minor">Minor (30 pts)</option>
-                        <option value="special">⭐ Special (60 pts / Multi-Cat)</option>
-                      </select>
+                      {(() => {
+                        const targetCat = activeCategoryTab === 'all' ? newEventCategory : activeCategoryTab;
+                        const allowedTiers = getAllowedTiersForCategory(targetCat, currentStep5Rules);
+                        const selectedValue = allowedTiers.some(t => t.value === newEventTier)
+                          ? newEventTier
+                          : (allowedTiers[0]?.value || 'major');
+                        return (
+                          <select
+                            value={selectedValue}
+                            onChange={e => setNewEventTier(e.target.value as PointTier)}
+                            className="w-full px-2.5 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                          >
+                            {allowedTiers.map(opt => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        );
+                      })()}
                     </div>
 
                     <button
@@ -1474,15 +1763,34 @@ export const AdminStartNewPalakasanModal: React.FC<AdminStartNewPalakasanModalPr
                                   {badge.icon}
                                   <span>{badge.label}</span>
                                 </span>
-                                <span
-                                  className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase ${
-                                    ev.pointTier === 'major'
-                                      ? 'bg-amber-100 text-amber-800'
-                                      : 'bg-slate-100 text-slate-600'
-                                  }`}
-                                >
-                                  {ev.pointTier} ({ev.pointTier === 'major' ? '50pts' : '30pts'})
-                                </span>
+                                {(() => {
+                                  const effectiveTier = getEffectivePointTier(
+                                    { category: ev.category, pointTier: ev.pointTier },
+                                    currentStep5Rules
+                                  );
+                                  const tierPts = getEventPointsForPlacement(
+                                    '1st',
+                                    { category: ev.category, pointTier: effectiveTier },
+                                    currentStep5Rules
+                                  );
+                                  const tierText =
+                                    ev.category === 'sports' && effectiveTier === 'special'
+                                      ? 'Special Sports'
+                                      : effectiveTier;
+                                  return (
+                                    <span
+                                      className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase ${
+                                        ev.category === 'sports' && effectiveTier === 'special'
+                                          ? 'bg-purple-100 text-purple-800'
+                                          : effectiveTier === 'major'
+                                          ? 'bg-amber-100 text-amber-800'
+                                          : 'bg-slate-100 text-slate-600'
+                                      }`}
+                                    >
+                                      {tierText} ({tierPts}pts)
+                                    </span>
+                                  );
+                                })()}
                               </div>
                               <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
                                 <span className="capitalize font-semibold text-slate-600">
@@ -1568,14 +1876,33 @@ export const AdminStartNewPalakasanModal: React.FC<AdminStartNewPalakasanModalPr
                   <span className="text-slate-500">Colleges ({selectedColleges.length}):</span>
                   <span className="font-bold text-slate-900">{selectedColleges.join(', ')}</span>
                 </div>
-                <div className="flex justify-between border-b border-slate-200/60 pb-1.5">
-                  <span className="text-slate-500">Point Scales:</span>
-                  <span className="font-mono font-bold text-slate-900 text-right">
-                    Special 1st: {specialPoints['1st']} • Major 1st: {majorPoints['1st']} • Minor 1st: {minorPoints['1st']}
-                    <span className="block text-[10px] text-amber-700 font-semibold">
-                      Multi-Category Disciplines: 10-8-6-4-2-0 pts
-                    </span>
-                  </span>
+                <div className="flex flex-col sm:flex-row sm:justify-between gap-2 border-b border-slate-200/60 pb-2">
+                  <span className="text-slate-500">Separated Point Scales:</span>
+                  <div className="font-mono font-bold text-slate-900 sm:text-right space-y-0.5 text-[11px]">
+                    {selectedCategories.includes('sports') && (
+                      <div>
+                        Sports: Major {byCategoryScoring.sports.majorPoints['1st']} • Minor {byCategoryScoring.sports.minorPoints['1st']} • Special Sports {byCategoryScoring.sports.specialPoints['1st']} (Heats: {byCategoryScoring.sports.disciplinePoints['1st']}-{byCategoryScoring.sports.disciplinePoints['2nd']}-{byCategoryScoring.sports.disciplinePoints['3rd']}-{byCategoryScoring.sports.disciplinePoints['4th']}-{byCategoryScoring.sports.disciplinePoints['5th']}-{byCategoryScoring.sports.disciplinePoints['6th']})
+                      </div>
+                    )}
+                    {selectedCategories.includes('cultural') && (
+                      <div>
+                        Cultural: Major {byCategoryScoring.cultural.majorPoints['1st']}
+                        {byCategoryScoring.cultural.useMinorTier !== false ? ` • Minor ${byCategoryScoring.cultural.minorPoints['1st']}` : ' (Major Only)'}
+                      </div>
+                    )}
+                    {selectedCategories.includes('literary') && (
+                      <div>
+                        Literary: Major {byCategoryScoring.literary.majorPoints['1st']}
+                        {byCategoryScoring.literary.useMinorTier !== false ? ` • Minor ${byCategoryScoring.literary.minorPoints['1st']}` : ' (Major Only)'}
+                      </div>
+                    )}
+                    {selectedCategories.includes('special') && (
+                      <div>
+                        Special Events: Major {byCategoryScoring.special.majorPoints['1st']}
+                        {byCategoryScoring.special.useMinorTier !== false ? ` • Minor ${byCategoryScoring.special.minorPoints['1st']}` : ' (Major Only)'}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Total Configured Events:</span>

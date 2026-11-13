@@ -2,7 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { X, Calendar, Clock, MapPin, Users, AlertCircle, CheckCircle2, ShieldAlert, Star, User, Phone } from 'lucide-react';
 import { usePalakasan } from '../../context/PalakasanContext';
 import { CategoryId, CollegeId, EventStatus, EventType, PalakasanEvent, PointTier } from '../../types';
-import { CATEGORIES, COLLEGES, VENUES } from '../../data/initialData';
+import {
+  CATEGORIES,
+  COLLEGES,
+  VENUES,
+  getAllowedTiersForCategory,
+  getEffectivePointTier,
+} from '../../data/initialData';
 
 interface AdminCreateEditEventModalProps {
   isOpen: boolean;
@@ -15,7 +21,7 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
   onClose,
   eventToEdit,
 }) => {
-  const { addEvent, updateEvent, currentAccount } = usePalakasan();
+  const { addEvent, updateEvent, currentAccount, currentPalakasan } = usePalakasan();
 
   const [eventName, setEventName] = useState('');
   const [category, setCategory] = useState<CategoryId>(() => currentAccount?.category || 'sports');
@@ -49,10 +55,7 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
       setEventName(eventToEdit.eventName);
       setCategory(eventToEdit.category);
       setEventType(eventToEdit.eventType || 'Team');
-      setPointTier(
-        eventToEdit.pointTier ||
-        (eventToEdit.category === 'special' ? 'special' : eventToEdit.isMajor || eventToEdit.category === 'sports' ? 'major' : 'minor')
-      );
+      setPointTier(getEffectivePointTier(eventToEdit, currentPalakasan?.scoringRules));
       setDescription(eventToEdit.description);
       setDate(eventToEdit.date);
       setStartTime(eventToEdit.startTime);
@@ -73,10 +76,18 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
       setPostponedDate(eventToEdit.postponedDate || '');
     } else {
       // Default reset for new event
+      const defaultCat = currentAccount?.category || 'sports';
+      const defaultTier = getEffectivePointTier(
+        {
+          category: defaultCat,
+          pointTier: defaultCat === 'sports' || defaultCat === 'special' ? 'major' : 'minor',
+        },
+        currentPalakasan?.scoringRules
+      );
       setEventName('');
-      setCategory(currentAccount?.category || 'sports');
+      setCategory(defaultCat);
       setEventType('Team');
-      setPointTier('major');
+      setPointTier(defaultTier);
       setDescription('');
       setDate('2026-09-16');
       setStartTime('09:00 AM');
@@ -141,6 +152,11 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
       return;
     }
 
+    const effectiveTier = getEffectivePointTier(
+      { category, pointTier },
+      currentPalakasan?.scoringRules
+    );
+
     const eventPayload: Partial<PalakasanEvent> & {
       eventName: string;
       category: CategoryId;
@@ -158,8 +174,8 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
       eventName: eventName.trim(),
       category,
       eventType,
-      pointTier,
-      isMajor: pointTier === 'major' || pointTier === 'special',
+      pointTier: effectiveTier,
+      isMajor: effectiveTier !== 'minor',
       description: description.trim(),
       date,
       startTime,
@@ -267,9 +283,12 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
                   onChange={e => {
                     const newCat = e.target.value as CategoryId;
                     setCategory(newCat);
-                    if (newCat === 'special') setPointTier('special');
-                    else if (newCat === 'sports') setPointTier('major');
-                    else setPointTier('minor');
+                    const allowed = getAllowedTiersForCategory(newCat, currentPalakasan?.scoringRules);
+                    if (newCat === 'sports' || newCat === 'special') {
+                      setPointTier('major');
+                    } else {
+                      setPointTier(allowed.find(a => a.value === 'minor')?.value || allowed[0]?.value || 'major');
+                    }
                   }}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 text-xs focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
                 >
@@ -283,21 +302,32 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
 
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Point Tier / Scoring System</label>
-                <select
-                  value={pointTier}
-                  onChange={e => setPointTier(e.target.value as PointTier)}
-                  className={`w-full px-3 py-2 border rounded-lg text-xs font-bold focus:ring-2 focus:ring-blue-600/20 ${
-                    pointTier === 'special'
-                      ? 'bg-purple-50 text-purple-900 border-purple-300'
-                      : pointTier === 'major'
-                      ? 'bg-blue-50 text-blue-900 border-blue-300'
-                      : 'bg-slate-50 text-slate-800 border-slate-300'
-                  }`}
-                >
-                  <option value="special">⭐ Special Events System (Showcase/Premier)</option>
-                  <option value="major">🏅 Major Events Scale (50-40-30-20)</option>
-                  <option value="minor">🥈 Minor Events Scale (30-20-15-10)</option>
-                </select>
+                {(() => {
+                  const allowedTiers = getAllowedTiersForCategory(category, currentPalakasan?.scoringRules);
+                  const currentTierVal = allowedTiers.some(t => t.value === pointTier)
+                    ? pointTier
+                    : (allowedTiers[0]?.value || 'major');
+                  return (
+                    <select
+                      value={currentTierVal}
+                      onChange={e => setPointTier(e.target.value as PointTier)}
+                      disabled={allowedTiers.length <= 1}
+                      className={`w-full px-3 py-2 border rounded-lg text-xs font-bold focus:ring-2 focus:ring-blue-600/20 disabled:opacity-80 ${
+                        currentTierVal === 'special'
+                          ? 'bg-amber-50 text-amber-900 border-amber-300'
+                          : currentTierVal === 'major'
+                          ? 'bg-blue-50 text-blue-900 border-blue-300'
+                          : 'bg-slate-50 text-slate-800 border-slate-300'
+                      }`}
+                    >
+                      {allowedTiers.map(opt => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label} ({opt.points['1st']}-{opt.points['2nd']}-{opt.points['3rd']}-{opt.points['4th']})
+                        </option>
+                      ))}
+                    </select>
+                  );
+                })()}
               </div>
 
               <div className="sm:col-span-2">
