@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Clock, MapPin, Users, AlertCircle, CheckCircle2, ShieldAlert, Star } from 'lucide-react';
+import { X, Calendar, Clock, MapPin, Users, AlertCircle, CheckCircle2, ShieldAlert, Star, User, Phone } from 'lucide-react';
 import { usePalakasan } from '../../context/PalakasanContext';
 import { CategoryId, CollegeId, EventStatus, EventType, PalakasanEvent, PointTier } from '../../types';
 import { CATEGORIES, COLLEGES, VENUES } from '../../data/initialData';
@@ -28,6 +28,8 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
   const [venue, setVenue] = useState(VENUES[0]);
   const [customVenue, setCustomVenue] = useState('');
   const [isCustomVenue, setIsCustomVenue] = useState(false);
+  const [personInCharge, setPersonInCharge] = useState('');
+  const [contactNumber, setContactNumber] = useState('');
   const [participatingColleges, setParticipatingColleges] = useState<CollegeId[]>([
     'CBIT',
     'CESS-IDS',
@@ -63,6 +65,8 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
         setCustomVenue(eventToEdit.venue);
       }
       setParticipatingColleges(eventToEdit.participatingColleges);
+      setPersonInCharge(eventToEdit.personInCharge || '');
+      setContactNumber(eventToEdit.contactNumber || '');
       setStatus(eventToEdit.status);
       setMatchup(eventToEdit.matchup || '');
       setCancelledReason(eventToEdit.cancelledReason || '');
@@ -80,6 +84,8 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
       setVenue(VENUES[0]);
       setIsCustomVenue(false);
       setCustomVenue('');
+      setPersonInCharge('');
+      setContactNumber('');
       setParticipatingColleges(['CBIT', 'CESS-IDS', 'CFMS', 'CELS']);
       setStatus('upcoming');
       setMatchup('');
@@ -159,6 +165,8 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
       startTime,
       endTime,
       venue: finalVenue,
+      personInCharge: personInCharge.trim(),
+      contactNumber: contactNumber.trim(),
       participatingColleges,
       status,
     };
@@ -407,6 +415,37 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
                     required
                   />
                 )}
+              </div>
+
+              {/* Person In-charge & Contact Number */}
+              <div className="sm:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="flex items-center gap-1.5 font-bold text-slate-700 mb-1">
+                    <User className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Person In-charge</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={personInCharge}
+                    onChange={e => setPersonInCharge(e.target.value)}
+                    placeholder="e.g. Prof. Juan Dela Cruz"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 text-xs focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="flex items-center gap-1.5 font-bold text-slate-700 mb-1">
+                    <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Contact Number</span>
+                  </label>
+                  <input
+                    type="tel"
+                    value={contactNumber}
+                    onChange={e => setContactNumber(e.target.value)}
+                    placeholder="e.g. 0917 123 4567"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 text-xs focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
+                  />
+                </div>
               </div>
             </div>
           </div>

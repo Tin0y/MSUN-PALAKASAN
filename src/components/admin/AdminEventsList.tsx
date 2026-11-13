@@ -18,6 +18,8 @@ import {
   CalendarDays,
   FileCheck2,
   Star,
+  User,
+  Phone,
 } from 'lucide-react';
 import { usePalakasan } from '../../context/PalakasanContext';
 import { CategoryId, EventStatus, PalakasanEvent } from '../../types';
@@ -271,6 +273,20 @@ export const AdminEventsList: React.FC<AdminEventsListProps> = ({
                         <MapPin className="w-3.5 h-3.5 text-slate-400" />
                         {event.venue}
                       </span>
+                      {(event.personInCharge || event.contactNumber) && (
+                        <>
+                          <span className="flex items-center gap-1 font-medium text-slate-600">
+                            <User className="w-3.5 h-3.5 text-blue-600" />
+                            {event.personInCharge || 'TBA'}
+                          </span>
+                          {event.contactNumber && (
+                            <span className="flex items-center gap-1 font-medium text-blue-700">
+                              <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                              {event.contactNumber}
+                            </span>
+                          )}
+                        </>
+                      )}
                     </div>
 
                     {/* Participating Colleges Pills */}

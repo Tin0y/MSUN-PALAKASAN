@@ -267,6 +267,8 @@ export interface PalakasanEvent {
   startTime: string; // e.g. "10:00 AM"
   endTime: string; // e.g. "11:00 AM"
   venue: string; // e.g. "Basketball Court", "TSAC"
+  personInCharge?: string; // Name of event coordinator / person in-charge
+  contactNumber?: string; // Contact phone number for person in-charge
   description: string;
   eventType?: EventType;
   competitionFormat?: CompetitionFormat;

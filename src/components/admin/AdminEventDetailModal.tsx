@@ -17,6 +17,8 @@ import {
   Ban,
   CalendarDays,
   TrendingUp,
+  User,
+  Phone,
 } from 'lucide-react';
 import { usePalakasan } from '../../context/PalakasanContext';
 import { CollegeId, PalakasanEvent } from '../../types';
@@ -501,6 +503,35 @@ export const AdminEventDetailModal: React.FC<AdminEventDetailModalProps> = ({
                 <span>{event.venue}</span>
               </div>
               <p className="text-[11px] text-slate-500">Official tournament campus location</p>
+            </div>
+
+            <div className="p-3.5 rounded-xl border border-slate-200 bg-white space-y-1 sm:col-span-2">
+              <div className="flex items-center justify-between text-slate-400">
+                <span className="font-bold text-[10px] uppercase">Event Coordinator / In-Charge</span>
+                <button
+                  type="button"
+                  onClick={() => onOpenEdit(event)}
+                  className="text-blue-600 hover:text-blue-800 font-semibold"
+                >
+                  Edit Info
+                </button>
+              </div>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 pt-0.5">
+                <div className="flex items-center gap-1.5 text-slate-800 font-bold">
+                  <User className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                  <span>{event.personInCharge || 'Not assigned yet'}</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-slate-700 font-semibold">
+                  <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  {event.contactNumber ? (
+                    <a href={`tel:${event.contactNumber.replace(/\s+/g, '')}`} className="text-blue-700 hover:underline">
+                      {event.contactNumber}
+                    </a>
+                  ) : (
+                    <span className="text-slate-400 font-normal">No contact number provided</span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 

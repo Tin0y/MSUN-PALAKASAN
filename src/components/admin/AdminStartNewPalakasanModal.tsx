@@ -45,6 +45,8 @@ export interface InitialEventConfig {
   competitionFormat: CompetitionFormat;
   pointTier: PointTier;
   venue: string;
+  personInCharge?: string;
+  contactNumber?: string;
   description?: string;
 }
 
@@ -354,6 +356,8 @@ export const AdminStartNewPalakasanModal: React.FC<AdminStartNewPalakasanModalPr
   const [newEventFormat, setNewEventFormat] = useState<CompetitionFormat>('double-elimination');
   const [newEventTier, setNewEventTier] = useState<PointTier>('major');
   const [newEventVenue, setNewEventVenue] = useState('Basketball Court');
+  const [newEventPersonInCharge, setNewEventPersonInCharge] = useState('');
+  const [newEventContactNumber, setNewEventContactNumber] = useState('');
   const [activeCategoryTab, setActiveCategoryTab] = useState<CategoryId | 'all'>('sports');
 
   const [setAsCurrentNow, setSetAsCurrentNow] = useState(true);
@@ -404,11 +408,15 @@ export const AdminStartNewPalakasanModal: React.FC<AdminStartNewPalakasanModalPr
       competitionFormat: newEventFormat,
       pointTier: newEventTier,
       venue: newEventVenue.trim() || venues[0]?.name || 'Campus Grounds',
+      personInCharge: newEventPersonInCharge.trim(),
+      contactNumber: newEventContactNumber.trim(),
       description: `${newEventName.trim()} competition for ${name}`,
     };
 
     setEventsList(prev => [...prev, newEvent]);
     setNewEventName('');
+    setNewEventPersonInCharge('');
+    setNewEventContactNumber('');
     setError(null);
   };
 
@@ -588,6 +596,8 @@ export const AdminStartNewPalakasanModal: React.FC<AdminStartNewPalakasanModalPr
           pointTier: ev.pointTier,
           isMajor: ev.pointTier === 'major',
           venue: ev.venue || (venues[0]?.name || 'Campus Court'),
+          personInCharge: ev.personInCharge || '',
+          contactNumber: ev.contactNumber || '',
           date: startDate,
           startTime: '08:00 AM',
           endTime: '11:00 AM',
@@ -1347,6 +1357,34 @@ export const AdminStartNewPalakasanModal: React.FC<AdminStartNewPalakasanModalPr
                       <Plus className="w-4 h-4" />
                       <span>Add</span>
                     </button>
+                  </div>
+                </div>
+
+                {/* Optional Person In-charge & Contact Number */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Person In-charge (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={newEventPersonInCharge}
+                      onChange={e => setNewEventPersonInCharge(e.target.value)}
+                      placeholder="e.g. Prof. Juan Dela Cruz"
+                      className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Contact Number (Optional)
+                    </label>
+                    <input
+                      type="tel"
+                      value={newEventContactNumber}
+                      onChange={e => setNewEventContactNumber(e.target.value)}
+                      placeholder="e.g. 0917 123 4567"
+                      className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                    />
                   </div>
                 </div>
 

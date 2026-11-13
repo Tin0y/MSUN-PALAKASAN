@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Clock, MapPin, ArrowRight } from 'lucide-react';
+import { Calendar, Clock, MapPin, ArrowRight, User, Phone } from 'lucide-react';
 import { usePalakasan } from '../context/PalakasanContext';
 import { CategoryId, CollegeId, NavigationTab } from '../types';
 import { getCategoryMeta, getCollegeBadgeStyle } from '../utils/collegeTheme';
@@ -143,6 +143,31 @@ export const UpcomingActivities: React.FC<UpcomingActivitiesProps> = ({
                     <div className="flex items-center gap-1.5 text-xs text-slate-500">
                       <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       <span className="line-clamp-1">{event.venue}</span>
+                    </div>
+
+                    {/* Person In-charge & Contact Number */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-xs text-slate-600 bg-slate-50/80 border border-slate-100 rounded-lg px-2.5 py-1.5">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <User className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                        <span className="text-slate-500 shrink-0">In-charge:</span>
+                        <span className="font-semibold text-slate-800 truncate">
+                          {event.personInCharge || 'TBA'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        {event.contactNumber ? (
+                          <a
+                            href={`tel:${event.contactNumber.replace(/\s+/g, '')}`}
+                            onClick={e => e.stopPropagation()}
+                            className="font-semibold text-blue-700 hover:underline"
+                          >
+                            {event.contactNumber}
+                          </a>
+                        ) : (
+                          <span className="text-slate-400 font-medium">TBA</span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Participating Colleges Badges */}

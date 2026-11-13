@@ -81,6 +81,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     startTime: string;
     endTime: string;
     venue: string;
+    personInCharge: string;
+    contactNumber: string;
     description: string;
     participatingColleges: CollegeId[];
     matchup: string;
@@ -92,6 +94,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     startTime: '10:00 AM',
     endTime: '11:00 AM',
     venue: 'Basketball Court',
+    personInCharge: '',
+    contactNumber: '',
     description: '',
     participatingColleges: ['CBIT', 'CESS-IDS', 'CFMS', 'CELS'],
     matchup: '',
@@ -186,10 +190,16 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       return;
     }
 
+    const normalizedPayload = {
+      ...eventFormData,
+      personInCharge: eventFormData.personInCharge.trim(),
+      contactNumber: eventFormData.contactNumber.trim(),
+    };
+
     if (isEditingEvent && editingEventId) {
-      updateEvent(editingEventId, eventFormData);
+      updateEvent(editingEventId, normalizedPayload);
     } else {
-      addEvent(eventFormData);
+      addEvent(normalizedPayload);
     }
 
     // Reset form
@@ -202,6 +212,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       startTime: '10:00 AM',
       endTime: '11:00 AM',
       venue: 'Basketball Court',
+      personInCharge: '',
+      contactNumber: '',
       description: '',
       participatingColleges: ['CBIT', 'CESS-IDS', 'CFMS', 'CELS'],
       matchup: '',
@@ -219,6 +231,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       startTime: ev.startTime,
       endTime: ev.endTime,
       venue: ev.venue,
+      personInCharge: ev.personInCharge || '',
+      contactNumber: ev.contactNumber || '',
       description: ev.description,
       participatingColleges: ev.participatingColleges,
       matchup: ev.matchup || '',
@@ -677,6 +691,36 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                               setEventFormData({ ...eventFormData, matchup: e.target.value })
                             }
                             placeholder="e.g. CBIT vs CESS-IDS or Championship"
+                            className="w-full px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-blue-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1">
+                            Person In-charge
+                          </label>
+                          <input
+                            type="text"
+                            value={eventFormData.personInCharge}
+                            onChange={e =>
+                              setEventFormData({ ...eventFormData, personInCharge: e.target.value })
+                            }
+                            placeholder="e.g. Prof. Juan Dela Cruz"
+                            className="w-full px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-blue-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1">
+                            Contact Number
+                          </label>
+                          <input
+                            type="tel"
+                            value={eventFormData.contactNumber}
+                            onChange={e =>
+                              setEventFormData({ ...eventFormData, contactNumber: e.target.value })
+                            }
+                            placeholder="e.g. 0917 123 4567"
                             className="w-full px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-blue-500"
                           />
                         </div>

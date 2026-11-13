@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, MapPin, Users, Calendar, ArrowRight, Radio } from 'lucide-react';
+import { Clock, MapPin, Users, Calendar, ArrowRight, Radio, User, Phone } from 'lucide-react';
 import { usePalakasan } from '../context/PalakasanContext';
 import { getCategoryMeta, getCollegeBadgeStyle } from '../utils/collegeTheme';
 import { CollegeId } from '../types';
@@ -85,12 +85,41 @@ export const HappeningNow: React.FC<HappeningNowProps> = ({
                 </p>
 
                 {/* Venue */}
-                <div className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-slate-600 pt-1">
-                  <MapPin className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                  <span>Venue:</span>
-                  <span className="text-slate-900 font-semibold px-2 py-0.5 rounded bg-slate-100 border border-slate-200">
-                    {liveEvent.venue}
-                  </span>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs sm:text-sm font-medium text-slate-600 pt-1">
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    <span>Venue:</span>
+                    <span className="text-slate-900 font-semibold px-2 py-0.5 rounded bg-slate-100 border border-slate-200">
+                      {liveEvent.venue}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Additional Info: Person In-charge & Contact Number */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs sm:text-sm text-slate-600 pt-1">
+                  <div className="flex items-center gap-1.5">
+                    <User className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                    <span>Person In-charge:</span>
+                    <span className="text-slate-900 font-semibold px-2 py-0.5 rounded bg-slate-100 border border-slate-200">
+                      {liveEvent.personInCharge || 'TBA'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Phone className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                    <span>Contact:</span>
+                    {liveEvent.contactNumber ? (
+                      <a
+                        href={`tel:${liveEvent.contactNumber.replace(/\s+/g, '')}`}
+                        className="text-blue-700 hover:underline font-semibold px-2 py-0.5 rounded bg-blue-50 border border-blue-200"
+                      >
+                        {liveEvent.contactNumber}
+                      </a>
+                    ) : (
+                      <span className="text-slate-500 font-medium px-2 py-0.5 rounded bg-slate-100 border border-slate-200">
+                        TBA
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -163,8 +192,29 @@ export const HappeningNow: React.FC<HappeningNowProps> = ({
                       {nextEvent.eventName}
                     </div>
                     <div className="text-xs text-slate-500 flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-slate-400" />
+                      <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
                       <span>{nextEvent.venue}</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 pt-0.5">
+                      <span className="inline-flex items-center gap-1">
+                        <User className="w-3 h-3 text-blue-600 shrink-0" />
+                        <span>In-charge:</span>
+                        <span className="font-semibold text-slate-700">{nextEvent.personInCharge || 'TBA'}</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <Phone className="w-3 h-3 text-emerald-600 shrink-0" />
+                        {nextEvent.contactNumber ? (
+                          <a
+                            href={`tel:${nextEvent.contactNumber.replace(/\s+/g, '')}`}
+                            onClick={e => e.stopPropagation()}
+                            className="font-semibold text-blue-700 hover:underline"
+                          >
+                            {nextEvent.contactNumber}
+                          </a>
+                        ) : (
+                          <span className="font-medium text-slate-500">TBA</span>
+                        )}
+                      </span>
                     </div>
                   </div>
                   <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white text-blue-700 border border-blue-200 text-xs font-semibold hover:bg-blue-50 shrink-0">

@@ -12,6 +12,8 @@ import {
   Ban,
   ArrowRight,
   PlusCircle,
+  User,
+  Phone,
 } from 'lucide-react';
 import { usePalakasan } from '../../context/PalakasanContext';
 import { PalakasanEvent } from '../../types';
@@ -181,6 +183,20 @@ export const AdminScheduleView: React.FC<AdminScheduleViewProps> = ({
                             <MapPin className="w-3.5 h-3.5 text-slate-400" />
                             <span>{event.venue}</span>
                           </div>
+                          {(event.personInCharge || event.contactNumber) && (
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-slate-600">
+                              <span className="inline-flex items-center gap-1">
+                                <User className="w-3.5 h-3.5 text-blue-600" />
+                                <span className="font-medium">{event.personInCharge || 'TBA'}</span>
+                              </span>
+                              {event.contactNumber && (
+                                <span className="inline-flex items-center gap-1 text-blue-700 font-medium">
+                                  <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>{event.contactNumber}</span>
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
 
                         {/* Participating Colleges */}

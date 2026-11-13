@@ -679,49 +679,53 @@ export async function setActivePalakasan(targetId: string, allEditions: Palakasa
   await batch.commit();
 }
 
+async function deleteQuerySnapshotInChunks(docs: { ref: any }[]): Promise<void> {
+  for (let i = 0; i < docs.length; i += 400) {
+    const chunk = docs.slice(i, i + 400);
+    const batch = writeBatch(db);
+    chunk.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+  }
+}
+
 export async function deletePalakasanEdition(editionId: string): Promise<void> {
-  const batch = writeBatch(db);
-  const docRef = doc(db, 'palakasans', editionId);
-  batch.delete(docRef);
+  const refsToDelete: { ref: any }[] = [{ ref: doc(db, 'palakasans', editionId) }];
 
   // Delete all events for this palakasan
-  const eventsRef = collection(db, 'events');
-  const evSnap = await getDocs(eventsRef);
+  const evSnap = await getDocs(collection(db, 'events'));
   evSnap.forEach(d => {
     const data = d.data() as PalakasanEvent;
     if (data.palakasanId === editionId) {
-      batch.delete(d.ref);
+      refsToDelete.push(d);
     }
   });
 
   // Delete point transactions for this palakasan
-  const ptRef = collection(db, 'pointTransactions');
-  const ptSnap = await getDocs(ptRef);
+  const ptSnap = await getDocs(collection(db, 'pointTransactions'));
   ptSnap.forEach(d => {
     const data = d.data() as PointTransaction;
     if (data.palakasanId === editionId) {
-      batch.delete(d.ref);
+      refsToDelete.push(d);
     }
   });
 
   // Delete activity logs for this palakasan
-  const actRef = collection(db, 'activityLogs');
-  const actSnap = await getDocs(actRef);
+  const actSnap = await getDocs(collection(db, 'activityLogs'));
   actSnap.forEach(d => {
     const data = d.data() as ActivityLogItem;
     if (data.palakasanId === editionId) {
-      batch.delete(d.ref);
+      refsToDelete.push(d);
     }
   });
 
-  await batch.commit();
+  await deleteQuerySnapshotInChunks(refsToDelete);
 }
 
 /**
  * Completely purges all tournament editions, events, point transactions,
- * and activity logs from Firestore. Foundational colleges and venues remain intact.
+ * and activity logs from Firestore. Foundational colleges, categories, and venues remain intact.
  */
-export async function wipeAllTournamentsData(adminUser = 'Administrator'): Promise<void> {
+export async function wipeAllTournamentsData(_adminUser = 'Administrator'): Promise<void> {
   const collections = [
     'palakasans',
     'events',
@@ -732,19 +736,20 @@ export async function wipeAllTournamentsData(adminUser = 'Administrator'): Promi
     'brackets',
     'standings',
     'eventRankings',
+    'eventParticipants',
+    'scoringRules',
+    'competitionFormats',
   ];
 
   for (const colName of collections) {
     const colRef = collection(db, colName);
     const snap = await getDocs(colRef);
     if (!snap.empty) {
-      const batch = writeBatch(db);
-      snap.forEach(d => batch.delete(d.ref));
-      await batch.commit();
+      await deleteQuerySnapshotInChunks(snap.docs);
     }
   }
 
-  // Ensure colleges and venues are intact
+  // Ensure colleges, categories, and venues are intact
   const collegesRef = collection(db, 'colleges');
   const colSnap = await getDocs(collegesRef);
   if (colSnap.empty) {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Calendar, Clock, MapPin, Users, Award, Shield, CheckCircle2, Star } from 'lucide-react';
+import { X, Calendar, Clock, MapPin, Users, Award, Shield, CheckCircle2, Star, User, Phone } from 'lucide-react';
 import { usePalakasan } from '../context/PalakasanContext';
 import { CollegeId } from '../types';
 import { getCategoryMeta, getCollegeBadgeStyle, getPlacementBadge } from '../utils/collegeTheme';
@@ -111,6 +111,31 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
               <div>
                 <span className="text-[10px] uppercase font-semibold text-slate-500 block">Venue</span>
                 <span className="font-semibold text-slate-900">{event.venue}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 text-slate-700">
+              <User className="w-4 h-4 text-blue-600" />
+              <div>
+                <span className="text-[10px] uppercase font-semibold text-slate-500 block">Person In-charge</span>
+                <span className="font-semibold text-slate-900">{event.personInCharge || 'TBA'}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 text-slate-700">
+              <Phone className="w-4 h-4 text-emerald-600" />
+              <div>
+                <span className="text-[10px] uppercase font-semibold text-slate-500 block">Contact Number</span>
+                {event.contactNumber ? (
+                  <a
+                    href={`tel:${event.contactNumber.replace(/\s+/g, '')}`}
+                    className="font-semibold text-blue-700 hover:underline"
+                  >
+                    {event.contactNumber}
+                  </a>
+                ) : (
+                  <span className="font-semibold text-slate-500">TBA</span>
+                )}
               </div>
             </div>
           </div>

@@ -20,15 +20,17 @@ import {
 import { usePalakasan } from '../../context/PalakasanContext';
 import { RankingsVisibilityManager } from './RankingsVisibilityManager';
 
-type ActionType = 'reset-defaults' | 'clear-points' | 'clear-logs' | null;
+type ActionType = 'reset-defaults' | 'clear-points' | 'clear-logs' | 'wipe-all' | null;
 
 export const AdminSettingsView: React.FC = () => {
   const {
     resetToDefaultData,
     clearPointHistory,
     clearActivityAuditLogs,
+    wipeAllPalakasanData,
     getEventStats,
     currentPalakasan,
+    allPalakasans,
     events,
     pointTransactions,
     activityLogs,
@@ -58,6 +60,9 @@ export const AdminSettingsView: React.FC = () => {
       } else if (activeModal === 'clear-logs') {
         await clearActivityAuditLogs();
         showToast('Activity audit trail cleared successfully.');
+      } else if (activeModal === 'wipe-all') {
+        await wipeAllPalakasanData();
+        showToast('All PALAKASAN editions, events, points, and logs have been removed. You can now start from scratch.');
       }
       setActiveModal(null);
     } catch (err) {
@@ -118,8 +123,8 @@ export const AdminSettingsView: React.FC = () => {
             Active Edition
           </span>
           <span className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5 mt-0.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            {currentPalakasan?.name || 'PALAKASAN 2026'}
+            <span className={`w-2 h-2 rounded-full ${currentPalakasan ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+            {currentPalakasan?.name || 'None (Clean Slate)'}
           </span>
         </div>
       </div>
@@ -280,6 +285,36 @@ export const AdminSettingsView: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* Action 4: Wipe Everything / Start From Scratch */}
+            <div className="p-4 rounded-xl border border-red-200 bg-red-50/50 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-red-900 font-bold text-sm">
+                    <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                    <span>Start From Scratch (Remove All PALAKASAN &amp; Events)</span>
+                  </div>
+                  <p className="text-xs text-red-800 leading-relaxed">
+                    Permanently deletes <strong>all PALAKASAN editions ({allPalakasans.length})</strong>, <strong>all scheduled events ({events.length})</strong>, matches, point transactions, and logs so you can build a brand-new tournament from a completely blank slate. Colleges, categories, and venues remain intact.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1 border-t border-red-200/70">
+                <span className="text-[11px] font-medium text-red-700">
+                  Irreversible full tournament wipe.
+                </span>
+                <button
+                  type="button"
+                  id="btn-open-wipe-all-modal"
+                  onClick={() => setActiveModal('wipe-all')}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer shrink-0"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Wipe All Data</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -410,11 +445,13 @@ export const AdminSettingsView: React.FC = () => {
                   {activeModal === 'reset-defaults' && 'Restore Demo Tournament Data?'}
                   {activeModal === 'clear-points' && 'Clear Leaderboard & Point History?'}
                   {activeModal === 'clear-logs' && 'Purge Administrative Activity Logs?'}
+                  {activeModal === 'wipe-all' && 'Remove All PALAKASAN & Events?'}
                 </h4>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {activeModal === 'reset-defaults' && 'This will reload the initial MSUN Palakasan demo dataset.'}
                   {activeModal === 'clear-points' && 'This will reset all college scores to 0 and re-open events.'}
                   {activeModal === 'clear-logs' && 'This will remove all recorded audit log records.'}
+                  {activeModal === 'wipe-all' && 'This will permanently clear all tournament editions and events to start from scratch.'}
                 </p>
               </div>
             </div>
@@ -443,6 +480,13 @@ export const AdminSettingsView: React.FC = () => {
                     <li>Deletes {activityLogs.length} entries from the activity log history.</li>
                     <li>Creates a clean timestamp entry indicating audit trail was cleared.</li>
                     <li>Does not affect leaderboard points or event schedules.</li>
+                  </>
+                )}
+                {activeModal === 'wipe-all' && (
+                  <>
+                    <li>Removes all {allPalakasans.length} PALAKASAN edition(s) and all {events.length} event(s).</li>
+                    <li>Deletes all point transactions, brackets, standings, and activity logs.</li>
+                    <li>Preserves participating colleges, categories, and campus venues so you can start fresh.</li>
                   </>
                 )}
               </ul>

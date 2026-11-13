@@ -11,6 +11,8 @@ import {
   Settings2,
   ExternalLink,
   Users,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import { usePalakasan } from '../../context/PalakasanContext';
 import { PalakasanEdition } from '../../types';
@@ -29,14 +31,30 @@ export const AdminPalakasanView: React.FC<AdminPalakasanViewProps> = ({
     setViewedPalakasanId,
     switchActivePalakasan,
     updatePalakasan,
+    deletePalakasan,
     events,
     colleges,
   } = usePalakasan();
 
   const [editingEdition, setEditingEdition] = useState<PalakasanEdition | null>(null);
+  const [editionToDelete, setEditionToDelete] = useState<PalakasanEdition | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [editStatus, setEditStatus] = useState<'upcoming' | 'ongoing' | 'completed' | 'archived'>('ongoing');
   const [editTagline, setEditTagline] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  const handleConfirmDeleteEdition = async () => {
+    if (!editionToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deletePalakasan(editionToDelete.id);
+      setEditionToDelete(null);
+    } catch (e) {
+      console.error('Failed to delete PALAKASAN edition:', e);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const handleStartEdit = (edition: PalakasanEdition) => {
     setEditingEdition(edition);
@@ -150,93 +168,162 @@ export const AdminPalakasanView: React.FC<AdminPalakasanViewProps> = ({
         </div>
 
         <div className="divide-y divide-slate-100">
-          {allPalakasans.map(edition => {
-            const isCurrentlyActive = edition.isCurrent;
-            const isCurrentlyViewed = edition.id === viewedPalakasanId;
-
-            return (
-              <div
-                key={edition.id}
-                className={`p-4 sm:p-6 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4 ${
-                  isCurrentlyActive ? 'bg-blue-50/30' : 'hover:bg-slate-50'
-                }`}
+          {allPalakasans.length === 0 ? (
+            <div className="p-10 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto border border-blue-100">
+                <Trophy className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-sm font-extrabold text-slate-900">
+                  No PALAKASAN Editions Yet
+                </h4>
+                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                  All previous tournament editions and events have been cleared. Click below to create a brand-new PALAKASAN edition from scratch.
+                </p>
+              </div>
+              <button
+                onClick={onOpenStartNewWizard}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-colors"
               >
-                <div className="flex items-start gap-4">
-                  <div
-                    className="w-12 h-12 rounded-xl text-white font-bold flex items-center justify-center text-lg shrink-0 shadow-xs"
-                    style={{ backgroundColor: edition.theme?.primaryColor || '#0284c7' }}
-                  >
-                    {edition.theme?.logo || '🏆'}
-                  </div>
+                <Plus className="w-4 h-4" />
+                <span>Start New PALAKASAN</span>
+              </button>
+            </div>
+          ) : (
+            allPalakasans.map(edition => {
+              const isCurrentlyActive = edition.isCurrent;
+              const isCurrentlyViewed = edition.id === viewedPalakasanId;
 
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h4 className="font-extrabold text-sm sm:text-base text-slate-900">
-                        {edition.name}
-                      </h4>
-                      {isCurrentlyActive && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                          Active Public
-                        </span>
-                      )}
-                      {isCurrentlyViewed && !isCurrentlyActive && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                          Viewing in Admin
-                        </span>
-                      )}
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-100 text-slate-600 border border-slate-200">
-                        {edition.status}
-                      </span>
+              return (
+                <div
+                  key={edition.id}
+                  className={`p-4 sm:p-6 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                    isCurrentlyActive ? 'bg-blue-50/30' : 'hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-start gap-4">
+                    <div
+                      className="w-12 h-12 rounded-xl text-white font-bold flex items-center justify-center text-lg shrink-0 shadow-xs"
+                      style={{ backgroundColor: edition.theme?.primaryColor || '#0284c7' }}
+                    >
+                      {edition.theme?.logo || '🏆'}
                     </div>
 
-                    <p className="text-xs text-slate-500 max-w-xl">
-                      {edition.theme?.tagline || edition.description}
-                    </p>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-extrabold text-sm sm:text-base text-slate-900">
+                          {edition.name}
+                        </h4>
+                        {isCurrentlyActive && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            Active Public
+                          </span>
+                        )}
+                        {isCurrentlyViewed && !isCurrentlyActive && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                            Viewing in Admin
+                          </span>
+                        )}
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-100 text-slate-600 border border-slate-200">
+                          {edition.status}
+                        </span>
+                      </div>
 
-                    <p className="text-[11px] text-slate-400">
-                      Dates: {edition.startDate} – {edition.endDate} • {edition.participatingColleges?.join(', ')}
-                    </p>
+                      <p className="text-xs text-slate-500 max-w-xl">
+                        {edition.theme?.tagline || edition.description}
+                      </p>
+
+                      <p className="text-[11px] text-slate-400">
+                        Dates: {edition.startDate} – {edition.endDate} • {edition.participatingColleges?.join(', ')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                    {/* Switch Viewing */}
+                    <button
+                      onClick={() => setViewedPalakasanId(edition.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
+                        isCurrentlyViewed
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      {isCurrentlyViewed ? 'Active in View' : 'Inspect Records'}
+                    </button>
+
+                    {/* Set as Active Public */}
+                    {!isCurrentlyActive && (
+                      <button
+                        onClick={() => switchActivePalakasan(edition.id)}
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                        title="Set this edition as the active current tournament for public users"
+                      >
+                        Set as Active
+                      </button>
+                    )}
+
+                    {/* Edit Info */}
+                    <button
+                      onClick={() => handleStartEdit(edition)}
+                      className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 border border-slate-200"
+                      title="Edit Edition Settings"
+                    >
+                      <Settings2 className="w-4 h-4" />
+                    </button>
+
+                    {/* Delete Edition */}
+                    <button
+                      onClick={() => setEditionToDelete(edition)}
+                      className="p-1.5 text-red-400 hover:text-red-700 rounded-lg hover:bg-red-50 border border-red-200/70"
+                      title="Delete Edition & Its Events"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  {/* Switch Viewing */}
-                  <button
-                    onClick={() => setViewedPalakasanId(edition.id)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
-                      isCurrentlyViewed
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    {isCurrentlyViewed ? 'Active in View' : 'Inspect Records'}
-                  </button>
-
-                  {/* Set as Active Public */}
-                  {!isCurrentlyActive && (
-                    <button
-                      onClick={() => switchActivePalakasan(edition.id)}
-                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
-                      title="Set this edition as the active current tournament for public users"
-                    >
-                      Set as Active
-                    </button>
-                  )}
-
-                  {/* Edit Info */}
-                  <button
-                    onClick={() => handleStartEdit(edition)}
-                    className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 border border-slate-200"
-                    title="Edit Edition Settings"
-                  >
-                    <Settings2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
+
+      {/* Delete Edition Confirmation Modal */}
+      {editionToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">
+                  Delete {editionToDelete.name}?
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  This permanently removes this PALAKASAN edition along with all its scheduled events, point transactions, and logs.
+                </p>
+              </div>
+            </div>
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setEditionToDelete(null)}
+                disabled={isDeleting}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDeleteEdition}
+                disabled={isDeleting}
+                className="px-4 py-2 text-xs font-bold bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:opacity-50"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete Edition'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Edition Modal */}
       {editingEdition && (

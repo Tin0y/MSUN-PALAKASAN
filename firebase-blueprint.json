@@ -104,6 +104,8 @@
         "startTime": { "type": "string", "description": "Start time e.g. 08:00 AM" },
         "endTime": { "type": "string", "description": "End time e.g. 11:30 AM" },
         "venue": { "type": "string", "description": "Venue name" },
+        "personInCharge": { "type": "string", "description": "Name of person in-charge / coordinator" },
+        "contactNumber": { "type": "string", "description": "Contact number of person in-charge" },
         "description": { "type": "string", "description": "Event description" },
         "participatingColleges": { "type": "list", "description": "Array of college acronyms" },
         "matchup": { "type": "string", "description": "Matchup text summary" },

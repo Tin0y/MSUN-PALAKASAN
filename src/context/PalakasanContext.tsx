@@ -1069,6 +1069,31 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     );
   };
 
+  const deletePalakasan = async (id: string): Promise<void> => {
+    await deletePalakasanDoc(id);
+    if (viewedPalakasanId === id) {
+      const remaining = allPalakasans.filter(p => p.id !== id);
+      setViewedPalakasanId(remaining[0]?.id || '');
+    }
+    await addDatabaseLog(
+      'Deleted PALAKASAN Edition',
+      `Removed edition ${id} and all associated events and transactions.`,
+      adminUserDisplay,
+      undefined,
+      undefined,
+      id
+    );
+  };
+
+  const wipeAllPalakasanData = async (): Promise<void> => {
+    await wipeAllTournamentsData(adminUserDisplay);
+    setAllPalakasans([]);
+    setViewedPalakasanId('');
+    setEvents([]);
+    setPointTransactions([]);
+    setActivityLogs([]);
+  };
+
   // -----------------------------------------------------------------
   // EVENT CRUD (PERSISTENT TO FIRESTORE)
   // -----------------------------------------------------------------
@@ -1867,6 +1892,8 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         createPalakasan,
         updatePalakasan,
         switchActivePalakasan,
+        deletePalakasan,
+        wipeAllPalakasanData,
         events,
         colleges,
         categories,

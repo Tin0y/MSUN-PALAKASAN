@@ -8,6 +8,8 @@ import {
   CheckCircle2,
   ArrowRight,
   RotateCcw,
+  User,
+  Phone,
 } from 'lucide-react';
 import { usePalakasan } from '../context/PalakasanContext';
 import { CategoryId, CollegeId, EventStatus } from '../types';
@@ -313,9 +315,29 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
 
                 {/* Middle: Venue & Colleges */}
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 text-xs">
-                  <div className="flex items-center gap-1.5 text-slate-600">
-                    <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span className="font-medium">{event.venue}</span>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5 text-slate-600">
+                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="font-medium">{event.venue}</span>
+                    </div>
+                    {(event.personInCharge || event.contactNumber) && (
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-500">
+                        <span className="inline-flex items-center gap-1">
+                          <User className="w-3 h-3 text-blue-600 shrink-0" />
+                          <span className="font-medium text-slate-700">{event.personInCharge || 'TBA'}</span>
+                        </span>
+                        {event.contactNumber && (
+                          <a
+                            href={`tel:${event.contactNumber.replace(/\s+/g, '')}`}
+                            onClick={e => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 text-blue-700 hover:underline font-medium"
+                          >
+                            <Phone className="w-3 h-3 text-emerald-600 shrink-0" />
+                            <span>{event.contactNumber}</span>
+                          </a>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-1 flex-wrap">
