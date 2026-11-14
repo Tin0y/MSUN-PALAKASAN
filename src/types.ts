@@ -4,7 +4,7 @@ export type CollegeId = 'CBIT' | 'CESS-IDS' | 'CFMS' | 'CELS' | (string & {});
 
 export type Placement = '1st' | '2nd' | '3rd' | '4th' | 'DQ';
 
-export type EventStatus = 'upcoming' | 'ongoing' | 'completed' | 'cancelled' | 'postponed';
+export type EventStatus = 'upcoming' | 'ongoing' | 'paused' | 'completed' | 'cancelled' | 'postponed';
 
 export type ResultStatus = 'pending' | 'draft' | 'official';
 
@@ -265,6 +265,12 @@ export interface EliminatedCollege {
 export interface SubCategoryDiscipline {
   id: string;
   name: string;
+  competitionFormat?: CompetitionFormat;
+  tieBreakerRule?: TieBreakerRule;
+  games?: GameMatch[];
+  eliminatedColleges?: EliminatedCollege[];
+  roundRobinStats?: RoundRobinTeamStats[];
+  championCollegeId?: CollegeId;
   results?: {
     collegeId: CollegeId;
     placement: DisciplinePlacement;
@@ -310,6 +316,9 @@ export interface PalakasanEvent {
   declaredBy?: string; // Admin user who declared
   cancelledReason?: string;
   postponedDate?: string;
+  pausedReason?: string;
+  pausedAt?: string;
+  resumeDate?: string;
   createdAt?: string;
   updatedAt?: string;
 }

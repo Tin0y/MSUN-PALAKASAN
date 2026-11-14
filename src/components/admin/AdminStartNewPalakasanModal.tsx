@@ -39,6 +39,7 @@ import {
   getEffectivePointTier,
   getEventPointsForPlacement,
 } from '../../data/initialData';
+import { isInherentlyMultiCategoryEventName } from '../../utils/competitionEngine';
 
 interface AdminStartNewPalakasanModalProps {
   isOpen: boolean;
@@ -51,6 +52,7 @@ export interface InitialEventConfig {
   category: CategoryId;
   competitionFormat: CompetitionFormat;
   pointTier: PointTier;
+  isMultiCategoryEvent?: boolean;
   venue: string;
   personInCharge?: string;
   contactNumber?: string;
@@ -454,6 +456,16 @@ export const AdminStartNewPalakasanModal: React.FC<AdminStartNewPalakasanModalPr
     );
   };
 
+  const handleToggleEventSubCategories = (tempId: string) => {
+    setEventsList(prev =>
+      prev.map(ev => {
+        if (ev.tempId !== tempId) return ev;
+        const current = ev.isMultiCategoryEvent ?? isInherentlyMultiCategoryEventName(ev.eventName);
+        return { ...ev, isMultiCategoryEvent: !current };
+      })
+    );
+  };
+
   // Validation function when advancing
   const handleStepContinue = () => {
     setError(null);
@@ -600,6 +612,8 @@ export const AdminStartNewPalakasanModal: React.FC<AdminStartNewPalakasanModalPr
             competitionFormat: ev.competitionFormat,
             pointTier: effectiveTier,
             isMajor: effectiveTier !== 'minor',
+            isMultiCategoryEvent:
+              ev.isMultiCategoryEvent ?? isInherentlyMultiCategoryEventName(ev.eventName),
             venue: ev.venue || (venues[0]?.name || 'Campus Court'),
             personInCharge: ev.personInCharge || '',
             contactNumber: ev.contactNumber || '',
@@ -1805,8 +1819,30 @@ export const AdminStartNewPalakasanModal: React.FC<AdminStartNewPalakasanModalPr
                             </div>
                           </div>
 
-                          {/* Controls: Inline format selector & delete */}
-                          <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                          {/* Controls: Optional Sub-Events toggle, inline format selector & delete */}
+                          <div className="flex flex-wrap items-center gap-2 shrink-0 self-end sm:self-auto">
+                            {(ev.category === 'special' ||
+                              ev.pointTier === 'special' ||
+                              isInherentlyMultiCategoryEventName(ev.eventName)) && (() => {
+                              const useSub =
+                                ev.isMultiCategoryEvent ??
+                                isInherentlyMultiCategoryEventName(ev.eventName);
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleEventSubCategories(ev.tempId)}
+                                  className={`px-2 py-1 rounded-lg text-[11px] font-bold border transition-colors ${
+                                    useSub
+                                      ? 'bg-purple-100 text-purple-800 border-purple-300'
+                                      : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                                  }`}
+                                  title="Toggle whether this special event uses sub-event divisions or a single bracket"
+                                >
+                                  {useSub ? 'Sub-Events: On' : 'No Sub-Events'}
+                                </button>
+                              );
+                            })()}
+
                             <select
                               value={ev.competitionFormat}
                               onChange={e =>

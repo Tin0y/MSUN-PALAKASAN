@@ -53,7 +53,9 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
   // 2. Completed events that lack official results (pending results)
   const ongoingEvents = events.filter(e => e.status === 'ongoing');
   const pendingEvents = events.filter(
-    e => (e.status === 'completed' || e.status === 'ongoing') && e.resultStatus !== 'official'
+    e =>
+      (e.status === 'completed' || e.status === 'ongoing' || e.status === 'paused') &&
+      e.resultStatus !== 'official'
   );
 
   return (
@@ -273,7 +275,9 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
           <div className="text-2xl font-black text-blue-700 tracking-tight">
             {stats.ongoingEvents}
           </div>
-          <p className="text-[11px] text-blue-600/80 mt-1">Live in progress now</p>
+          <p className="text-[11px] text-blue-600/80 mt-1">
+            Live now{stats.pausedEvents > 0 ? ` • ${stats.pausedEvents} Paused` : ''}
+          </p>
         </div>
 
         {/* Completed Events */}
@@ -520,11 +524,17 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
                     <span
                       className={`text-[10px] font-bold px-1.5 py-0.5 rounded capitalize ${
                         event.status === 'ongoing'
-                          ? 'bg-blue-100 text-blue-800 animate-pulse'
+                          ? 'bg-blue-100 text-blue-800'
+                          : event.status === 'paused'
+                          ? 'bg-amber-100 text-amber-800 border border-amber-200'
                           : 'bg-amber-100 text-amber-800'
                       }`}
                     >
-                      {event.status === 'ongoing' ? 'Ongoing' : 'Pending Result'}
+                      {event.status === 'ongoing'
+                        ? 'Ongoing'
+                        : event.status === 'paused'
+                        ? 'Paused'
+                        : 'Pending Result'}
                     </span>
                   </div>
 

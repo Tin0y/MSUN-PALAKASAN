@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Clock, MapPin, Users, AlertCircle, CheckCircle2, ShieldAlert, Star, User, Phone } from 'lucide-react';
+import { X, Calendar, Clock, MapPin, Users, AlertCircle, CheckCircle2, ShieldAlert, Star, User, Phone, Layers } from 'lucide-react';
 import { usePalakasan } from '../../context/PalakasanContext';
-import { CategoryId, CollegeId, EventStatus, EventType, PalakasanEvent, PointTier } from '../../types';
+import { CategoryId, CollegeId, CompetitionFormat, EventStatus, EventType, PalakasanEvent, PointTier } from '../../types';
 import {
   CATEGORIES,
   COLLEGES,
@@ -9,6 +9,11 @@ import {
   getAllowedTiersForCategory,
   getEffectivePointTier,
 } from '../../data/initialData';
+import {
+  canConfigureSubEvents,
+  isInherentlyMultiCategoryEventName,
+  isSpecialMultiCategorySport,
+} from '../../utils/competitionEngine';
 
 interface AdminCreateEditEventModalProps {
   isOpen: boolean;
@@ -46,6 +51,11 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
   const [matchup, setMatchup] = useState('');
   const [cancelledReason, setCancelledReason] = useState('');
   const [postponedDate, setPostponedDate] = useState('');
+  const [pausedReason, setPausedReason] = useState('');
+  const [resumeDate, setResumeDate] = useState('');
+  const [competitionFormat, setCompetitionFormat] = useState<CompetitionFormat | ''>('double-elimination');
+  const [isMultiCategoryEvent, setIsMultiCategoryEvent] = useState(false);
+  const [subEventChoiceManual, setSubEventChoiceManual] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [showEarlyCompleteWarning, setShowEarlyCompleteWarning] = useState(false);
@@ -74,6 +84,11 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
       setMatchup(eventToEdit.matchup || '');
       setCancelledReason(eventToEdit.cancelledReason || '');
       setPostponedDate(eventToEdit.postponedDate || '');
+      setPausedReason(eventToEdit.pausedReason || '');
+      setResumeDate(eventToEdit.resumeDate || '');
+      setCompetitionFormat(eventToEdit.competitionFormat || '');
+      setIsMultiCategoryEvent(isSpecialMultiCategorySport(eventToEdit));
+      setSubEventChoiceManual(true);
     } else {
       // Default reset for new event
       const defaultCat = currentAccount?.category || 'sports';
@@ -102,6 +117,11 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
       setMatchup('');
       setCancelledReason('');
       setPostponedDate('');
+      setPausedReason('');
+      setResumeDate('');
+      setCompetitionFormat(defaultCat === 'sports' ? 'double-elimination' : '');
+      setIsMultiCategoryEvent(false);
+      setSubEventChoiceManual(false);
     }
     setError(null);
     setShowEarlyCompleteWarning(false);
@@ -176,6 +196,8 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
       eventType,
       pointTier: effectiveTier,
       isMajor: effectiveTier !== 'minor',
+      isMultiCategoryEvent,
+      competitionFormat: competitionFormat || undefined,
       description: description.trim(),
       date,
       startTime,
@@ -187,6 +209,19 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
       status,
     };
 
+    if (eventToEdit) {
+      if (!isMultiCategoryEvent) {
+        eventPayload.subCategories = undefined;
+        eventPayload.accumulatedScores = undefined;
+      }
+      if (!competitionFormat && !isMultiCategoryEvent) {
+        eventPayload.games = undefined;
+        eventPayload.eliminatedColleges = undefined;
+        eventPayload.roundRobinStats = undefined;
+        eventPayload.championCollegeId = undefined;
+      }
+    }
+
     if (matchup.trim()) {
       eventPayload.matchup = matchup.trim();
     }
@@ -196,11 +231,21 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
     if (status === 'postponed' && postponedDate.trim()) {
       eventPayload.postponedDate = postponedDate.trim();
     }
+    if (status === 'paused') {
+      eventPayload.pausedReason =
+        pausedReason.trim() || 'Paused — Remaining games scheduled for another day';
+      eventPayload.pausedAt = eventToEdit?.pausedAt || new Date().toISOString();
+      eventPayload.resumeDate = resumeDate.trim();
+    } else if (eventToEdit?.status === 'paused' && status === 'ongoing') {
+      eventPayload.pausedReason = '';
+      eventPayload.pausedAt = '';
+      eventPayload.resumeDate = '';
+    }
 
     if (eventToEdit) {
       updateEvent(eventToEdit.id, eventPayload, 'MSUN Admin Committee');
     } else {
-      addEvent(eventPayload, 'MSUN Admin Committee');
+      addEvent(eventPayload as Omit<PalakasanEvent, 'id'>, 'MSUN Admin Committee');
     }
 
     onClose();
@@ -269,7 +314,13 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
                 <input
                   type="text"
                   value={eventName}
-                  onChange={e => setEventName(e.target.value)}
+                  onChange={e => {
+                    const nextVal = e.target.value;
+                    setEventName(nextVal);
+                    if (!eventToEdit && !subEventChoiceManual) {
+                      setIsMultiCategoryEvent(isInherentlyMultiCategoryEventName(nextVal));
+                    }
+                  }}
                   placeholder="e.g. Basketball – Men, Hiphop Dance, Balak"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 text-xs focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
                   required
@@ -308,29 +359,31 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
                     ? pointTier
                     : (allowedTiers[0]?.value || 'major');
                   return (
-                    <select
-                      value={currentTierVal}
-                      onChange={e => setPointTier(e.target.value as PointTier)}
-                      disabled={allowedTiers.length <= 1}
-                      className={`w-full px-3 py-2 border rounded-lg text-xs font-bold focus:ring-2 focus:ring-blue-600/20 disabled:opacity-80 ${
-                        currentTierVal === 'special'
-                          ? 'bg-amber-50 text-amber-900 border-amber-300'
-                          : currentTierVal === 'major'
-                          ? 'bg-blue-50 text-blue-900 border-blue-300'
-                          : 'bg-slate-50 text-slate-800 border-slate-300'
-                      }`}
-                    >
-                      {allowedTiers.map(opt => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label} ({opt.points['1st']}-{opt.points['2nd']}-{opt.points['3rd']}-{opt.points['4th']})
-                        </option>
-                      ))}
-                    </select>
+                    <>
+                      <select
+                        value={currentTierVal}
+                        onChange={e => setPointTier(e.target.value as PointTier)}
+                        disabled={allowedTiers.length <= 1}
+                        className={`w-full px-3 py-2 border rounded-lg text-xs font-bold focus:ring-2 focus:ring-blue-600/20 disabled:opacity-80 ${
+                          currentTierVal === 'special'
+                            ? 'bg-amber-50 text-amber-900 border-amber-300'
+                            : currentTierVal === 'major'
+                            ? 'bg-blue-50 text-blue-900 border-blue-300'
+                            : 'bg-slate-50 text-slate-800 border-slate-300'
+                        }`}
+                      >
+                        {allowedTiers.map(opt => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label} ({opt.points['1st']}-{opt.points['2nd']}-{opt.points['3rd']}-{opt.points['4th']})
+                          </option>
+                        ))}
+                      </select>
+                    </>
                   );
                 })()}
               </div>
 
-              <div className="sm:col-span-2">
+              <div>
                 <label className="block font-bold text-slate-700 mb-1">Event Type</label>
                 <select
                   value={eventType}
@@ -343,6 +396,77 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
                   <option value="Group Performance">Group Performance</option>
                 </select>
               </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Bracket Format</label>
+                <select
+                  value={competitionFormat}
+                  onChange={e => setCompetitionFormat(e.target.value as CompetitionFormat | '')}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 text-xs focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600"
+                >
+                  <option value="">No Bracket (Standard / Judged)</option>
+                  <option value="double-elimination">Double Elimination</option>
+                  <option value="single-elimination">Single Elimination</option>
+                  <option value="round-robin">Round Robin</option>
+                  <option value="head-to-head">Head-to-Head / Match</option>
+                </select>
+              </div>
+
+              {canConfigureSubEvents({
+                eventName,
+                category,
+                pointTier: getEffectivePointTier({ category, pointTier }, currentPalakasan?.scoringRules),
+                isMultiCategoryEvent,
+                subCategories: eventToEdit?.subCategories,
+              }) && (
+                <div className="sm:col-span-2 p-3 rounded-xl border border-purple-200 bg-purple-50/70 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 font-bold text-purple-950 text-xs">
+                      <Layers className="w-3.5 h-3.5 text-purple-600" />
+                      <span>Sub-Event Divisions (Optional)</span>
+                    </div>
+                    <span className="text-[10px] font-semibold text-purple-700">
+                      Choose whether this event needs separate divisions
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMultiCategoryEvent(false);
+                        setSubEventChoiceManual(true);
+                      }}
+                      className={`p-2 rounded-lg border text-left transition-all ${
+                        !isMultiCategoryEvent
+                          ? 'bg-white border-purple-500 ring-1 ring-purple-500/30 text-slate-900 font-bold shadow-2xs'
+                          : 'bg-white/60 border-purple-200/70 text-slate-600 hover:bg-white'
+                      }`}
+                    >
+                      <div className="text-xs font-bold">No Sub-Events (Single Bracket)</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">
+                        Best for events like Beach Volleyball or Dance Sports with one bracket.
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMultiCategoryEvent(true);
+                        setSubEventChoiceManual(true);
+                      }}
+                      className={`p-2 rounded-lg border text-left transition-all ${
+                        isMultiCategoryEvent
+                          ? 'bg-purple-600 border-purple-600 text-white font-bold shadow-2xs'
+                          : 'bg-white/60 border-purple-200/70 text-slate-600 hover:bg-white'
+                      }`}
+                    >
+                      <div className="text-xs font-bold">With Sub-Event Divisions</div>
+                      <div className="text-[10px] opacity-85 mt-0.5">
+                        Best for Arnis, Swimming, or Athletics with weight classes / heats.
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="sm:col-span-2">
                 <label className="block font-bold text-slate-700 mb-1">Matchup / Sub-bracket (Optional)</label>
@@ -534,8 +658,8 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
               4. Event Status
             </h4>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-              {(['upcoming', 'ongoing', 'completed', 'cancelled', 'postponed'] as EventStatus[]).map(
+            <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+              {(['upcoming', 'ongoing', 'paused', 'completed', 'cancelled', 'postponed'] as EventStatus[]).map(
                 st => (
                   <button
                     type="button"
@@ -543,7 +667,9 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
                     onClick={() => setStatus(st)}
                     className={`py-2 px-2.5 rounded-lg border text-center capitalize text-xs font-bold transition-all ${
                       status === st
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                        ? st === 'paused'
+                          ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                          : 'bg-blue-600 text-white border-blue-600 shadow-xs'
                         : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                     }`}
                   >
@@ -552,6 +678,35 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
                 )
               )}
             </div>
+
+            {status === 'paused' && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block font-bold text-amber-800 text-xs mb-1">
+                    Pause Note / Progress
+                  </label>
+                  <input
+                    type="text"
+                    value={pausedReason}
+                    onChange={e => setPausedReason(e.target.value)}
+                    placeholder="e.g. Games 1–3 done; Game 4 to Finals next day"
+                    className="w-full px-3 py-1.5 bg-white border border-amber-300 rounded-lg text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-amber-800 text-xs mb-1">
+                    Planned Resume Date / Time
+                  </label>
+                  <input
+                    type="text"
+                    value={resumeDate}
+                    onChange={e => setResumeDate(e.target.value)}
+                    placeholder="e.g. Tomorrow, 09:00 AM"
+                    className="w-full px-3 py-1.5 bg-white border border-amber-300 rounded-lg text-xs"
+                  />
+                </div>
+              </div>
+            )}
 
             {status === 'cancelled' && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-xl space-y-1">

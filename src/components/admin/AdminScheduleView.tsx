@@ -144,21 +144,30 @@ export const AdminScheduleView: React.FC<AdminScheduleViewProps> = ({
                           <span className="font-bold text-[10px] text-blue-700 uppercase tracking-wider">
                             {catMeta.icon} {catMeta.name}
                           </span>
-                          <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                              event.status === 'ongoing'
-                                ? 'bg-blue-600 text-white animate-pulse'
-                                : event.status === 'completed'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : event.status === 'cancelled'
-                                ? 'bg-red-100 text-red-800'
-                                : event.status === 'postponed'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-slate-100 text-slate-700'
-                            }`}
-                          >
-                            {event.status}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                event.status === 'ongoing'
+                                  ? 'bg-blue-600 text-white'
+                                  : event.status === 'paused'
+                                  ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                  : event.status === 'completed'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : event.status === 'cancelled'
+                                  ? 'bg-red-100 text-red-800'
+                                  : event.status === 'postponed'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-slate-100 text-slate-700'
+                              }`}
+                            >
+                              {event.status}
+                            </span>
+                            {event.status === 'paused' && event.resumeDate && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                                Resumes: {event.resumeDate}
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         {/* Title & Matchup */}

@@ -9,6 +9,7 @@ import {
   Placement,
   RoundRobinTeamStats,
   ScoringRulesConfig,
+  SubCategoryDiscipline,
   TieBreakerRule,
 } from '../types';
 import { getEventPointsForPlacement } from '../data/initialData';
@@ -78,6 +79,10 @@ export function generateDoubleEliminationGames(
       gameNumber: 1,
       roundName: 'Winners Bracket — Round 1',
       stage: 'winners',
+      collegeA: colA,
+      collegeB: colB,
+      sourceDescriptionA: colA,
+      sourceDescriptionB: colB,
       participantA: { collegeId: colA, losses: 0, placeholderText: colA },
       participantB: { collegeId: colB, losses: 0, placeholderText: colB },
       status: 'scheduled',
@@ -95,6 +100,10 @@ export function generateDoubleEliminationGames(
       gameNumber: 2,
       roundName: 'Winners Bracket — Round 1',
       stage: 'winners',
+      collegeA: colC,
+      collegeB: colD,
+      sourceDescriptionA: colC,
+      sourceDescriptionB: colD,
       participantA: { collegeId: colC, losses: 0, placeholderText: colC },
       participantB: { collegeId: colD, losses: 0, placeholderText: colD },
       status: 'scheduled',
@@ -112,6 +121,8 @@ export function generateDoubleEliminationGames(
       gameNumber: 3,
       roundName: 'Winners Bracket Final',
       stage: 'winners',
+      sourceDescriptionA: 'Winner Game 1',
+      sourceDescriptionB: 'Winner Game 2',
       participantA: { placeholderText: 'Winner Game 1', losses: 0 },
       participantB: { placeholderText: 'Winner Game 2', losses: 0 },
       status: 'scheduled',
@@ -129,6 +140,8 @@ export function generateDoubleEliminationGames(
       gameNumber: 4,
       roundName: 'Losers Bracket — Round 1 (Elimination)',
       stage: 'losers',
+      sourceDescriptionA: 'Loser Game 1',
+      sourceDescriptionB: 'Loser Game 2',
       participantA: { placeholderText: 'Loser Game 1', losses: 1 },
       participantB: { placeholderText: 'Loser Game 2', losses: 1 },
       status: 'scheduled',
@@ -146,6 +159,8 @@ export function generateDoubleEliminationGames(
       gameNumber: 5,
       roundName: 'Losers Bracket Final (3rd Place Decider)',
       stage: 'losers',
+      sourceDescriptionA: 'Winner Game 4',
+      sourceDescriptionB: 'Loser Game 3',
       participantA: { placeholderText: 'Winner Game 4', losses: 1 },
       participantB: { placeholderText: 'Loser Game 3', losses: 1 },
       status: 'scheduled',
@@ -163,6 +178,8 @@ export function generateDoubleEliminationGames(
       gameNumber: 6,
       roundName: 'Championship Grand Final',
       stage: 'championship',
+      sourceDescriptionA: 'Winner Game 3 (Undefeated)',
+      sourceDescriptionB: 'Winner Game 5 (1 Loss)',
       participantA: { placeholderText: 'Winner Game 3 (Undefeated)', losses: 0 },
       participantB: { placeholderText: 'Winner Game 5 (1 Loss)', losses: 1 },
       status: 'scheduled',
@@ -180,6 +197,8 @@ export function generateDoubleEliminationGames(
       gameNumber: 7,
       roundName: 'Championship Reset Game (If Needed)',
       stage: 'reset',
+      sourceDescriptionA: 'Finalist A (1 Loss)',
+      sourceDescriptionB: 'Finalist B (1 Loss)',
       participantA: { placeholderText: 'Finalist A (1 Loss)', losses: 1 },
       participantB: { placeholderText: 'Finalist B (1 Loss)', losses: 1 },
       status: 'scheduled',
@@ -242,6 +261,10 @@ export function generateRoundRobinGames(
       gameNumber: gameNum,
       roundName,
       stage: 'round-robin',
+      collegeA: pA,
+      collegeB: pB,
+      sourceDescriptionA: pA,
+      sourceDescriptionB: pB,
       participantA: { collegeId: pA, placeholderText: pA, losses: 0 },
       participantB: { collegeId: pB, placeholderText: pB, losses: 0 },
       status: 'scheduled',
@@ -289,6 +312,10 @@ export function generateSingleEliminationGames(
       gameNumber: 1,
       roundName: 'Semifinal 1',
       stage: 'semifinal',
+      collegeA: colA,
+      collegeB: colB,
+      sourceDescriptionA: colA,
+      sourceDescriptionB: colB,
       participantA: { collegeId: colA, placeholderText: colA, losses: 0 },
       participantB: { collegeId: colB, placeholderText: colB, losses: 0 },
       status: 'scheduled',
@@ -305,6 +332,10 @@ export function generateSingleEliminationGames(
       gameNumber: 2,
       roundName: 'Semifinal 2',
       stage: 'semifinal',
+      collegeA: colC,
+      collegeB: colD,
+      sourceDescriptionA: colC,
+      sourceDescriptionB: colD,
       participantA: { collegeId: colC, placeholderText: colC, losses: 0 },
       participantB: { collegeId: colD, placeholderText: colD, losses: 0 },
       status: 'scheduled',
@@ -321,6 +352,8 @@ export function generateSingleEliminationGames(
       gameNumber: 3,
       roundName: 'Consolation (3rd Place Decider)',
       stage: 'consolation',
+      sourceDescriptionA: 'Loser Semifinal 1',
+      sourceDescriptionB: 'Loser Semifinal 2',
       participantA: { placeholderText: 'Loser Semifinal 1', losses: 1 },
       participantB: { placeholderText: 'Loser Semifinal 2', losses: 1 },
       status: 'scheduled',
@@ -337,6 +370,8 @@ export function generateSingleEliminationGames(
       gameNumber: 4,
       roundName: 'Championship Final',
       stage: 'final',
+      sourceDescriptionA: 'Winner Semifinal 1',
+      sourceDescriptionB: 'Winner Semifinal 2',
       participantA: { placeholderText: 'Winner Semifinal 1', losses: 0 },
       participantB: { placeholderText: 'Winner Semifinal 2', losses: 0 },
       status: 'scheduled',
@@ -427,9 +462,13 @@ export function processDoubleEliminationGameResult(
   // 1. If Game 1 completed:
   if (g.gameNumber === 1) {
     if (g3) {
+      g3.collegeA = winnerCollegeId;
+      g3.sourceDescriptionA = winnerCollegeId;
       g3.participantA = { collegeId: winnerCollegeId, placeholderText: winnerCollegeId, losses: 0 };
     }
     if (g4) {
+      g4.collegeA = loserCollegeId;
+      g4.sourceDescriptionA = loserCollegeId;
       g4.participantA = { collegeId: loserCollegeId, placeholderText: loserCollegeId, losses: 1 };
     }
   }
@@ -437,18 +476,30 @@ export function processDoubleEliminationGameResult(
   // 2. If Game 2 completed:
   if (g.gameNumber === 2) {
     if (g3) {
+      g3.collegeB = winnerCollegeId;
+      g3.sourceDescriptionB = winnerCollegeId;
       g3.participantB = { collegeId: winnerCollegeId, placeholderText: winnerCollegeId, losses: 0 };
     }
     if (g4) {
+      g4.collegeB = loserCollegeId;
+      g4.sourceDescriptionB = loserCollegeId;
       g4.participantB = { collegeId: loserCollegeId, placeholderText: loserCollegeId, losses: 1 };
     }
   }
 
   // Check unlocking of G3 and G4
-  if (g3 && g3.participantA?.collegeId && g3.participantB?.collegeId) {
+  if (
+    g3 &&
+    (g3.collegeA || g3.participantA?.collegeId) &&
+    (g3.collegeB || g3.participantB?.collegeId)
+  ) {
     g3.isUnlocked = true;
   }
-  if (g4 && g4.participantA?.collegeId && g4.participantB?.collegeId) {
+  if (
+    g4 &&
+    (g4.collegeA || g4.participantA?.collegeId) &&
+    (g4.collegeB || g4.participantB?.collegeId)
+  ) {
     g4.isUnlocked = true;
   }
 
@@ -457,6 +508,8 @@ export function processDoubleEliminationGameResult(
   if (g.gameNumber === 4) {
     addEliminated(loserCollegeId, 4, 'Losers Bracket Round 1', '4th');
     if (g5) {
+      g5.collegeA = winnerCollegeId;
+      g5.sourceDescriptionA = winnerCollegeId;
       g5.participantA = { collegeId: winnerCollegeId, placeholderText: winnerCollegeId, losses: 1 };
     }
   }
@@ -466,15 +519,23 @@ export function processDoubleEliminationGameResult(
   // Loser has 1 loss -> drops to G5 as Participant B.
   if (g.gameNumber === 3) {
     if (g6) {
+      g6.collegeA = winnerCollegeId;
+      g6.sourceDescriptionA = `${winnerCollegeId} (Undefeated)`;
       g6.participantA = { collegeId: winnerCollegeId, placeholderText: `${winnerCollegeId} (Undefeated)`, losses: 0 };
     }
     if (g5) {
+      g5.collegeB = loserCollegeId;
+      g5.sourceDescriptionB = `${loserCollegeId} (1 Loss)`;
       g5.participantB = { collegeId: loserCollegeId, placeholderText: `${loserCollegeId} (1 Loss)`, losses: 1 };
     }
   }
 
   // Check unlocking of G5
-  if (g5 && g5.participantA?.collegeId && g5.participantB?.collegeId) {
+  if (
+    g5 &&
+    (g5.collegeA || g5.participantA?.collegeId) &&
+    (g5.collegeB || g5.participantB?.collegeId)
+  ) {
     g5.isUnlocked = true;
   }
 
@@ -484,12 +545,18 @@ export function processDoubleEliminationGameResult(
   if (g.gameNumber === 5) {
     addEliminated(loserCollegeId, 5, 'Losers Bracket Final', '3rd');
     if (g6) {
+      g6.collegeB = winnerCollegeId;
+      g6.sourceDescriptionB = `${winnerCollegeId} (1 Loss)`;
       g6.participantB = { collegeId: winnerCollegeId, placeholderText: `${winnerCollegeId} (1 Loss)`, losses: 1 };
     }
   }
 
   // Check unlocking of G6
-  if (g6 && g6.participantA?.collegeId && g6.participantB?.collegeId) {
+  if (
+    g6 &&
+    (g6.collegeA || g6.participantA?.collegeId) &&
+    (g6.collegeB || g6.participantB?.collegeId)
+  ) {
     g6.isUnlocked = true;
   }
 
@@ -498,8 +565,8 @@ export function processDoubleEliminationGameResult(
 
   // 6. If Game 6 completed (Championship Grand Final):
   if (g.gameNumber === 6) {
-    const undefeatedTeam = g6?.participantA?.collegeId;
-    const oneLossTeam = g6?.participantB?.collegeId;
+    const undefeatedTeam = g6?.collegeA || g6?.participantA?.collegeId;
+    const oneLossTeam = g6?.collegeB || g6?.participantB?.collegeId;
 
     if (undefeatedTeam && winnerCollegeId === undefeatedTeam) {
       // Undefeated team won G6! Champion crowned!
@@ -519,6 +586,10 @@ export function processDoubleEliminationGameResult(
       if (g7) {
         g7.isUnlocked = true;
         g7.status = 'scheduled';
+        g7.collegeA = undefeatedTeam;
+        g7.collegeB = oneLossTeam;
+        g7.sourceDescriptionA = `${undefeatedTeam} (1 Loss)`;
+        g7.sourceDescriptionB = `${oneLossTeam} (1 Loss)`;
         g7.participantA = { collegeId: undefeatedTeam, placeholderText: `${undefeatedTeam} (1 Loss)`, losses: 1 };
         g7.participantB = { collegeId: oneLossTeam, placeholderText: `${oneLossTeam} (1 Loss)`, losses: 1 };
         g7.notes = 'Championship Reset Game required! Both finalists possess 1 loss.';
@@ -620,8 +691,8 @@ export function calculateRoundRobinStandings(
   const h2h: Record<string, CollegeId | 'draw' | null> = {};
 
   for (const g of games) {
-    const colA = g.participantA.collegeId;
-    const colB = g.participantB.collegeId;
+    const colA = g.collegeA || g.participantA?.collegeId;
+    const colB = g.collegeB || g.participantB?.collegeId;
     if (!colA || !colB) continue;
 
     if (g.status === 'completed' && g.scoreA !== undefined && g.scoreB !== undefined) {
@@ -757,18 +828,42 @@ export function processSingleEliminationGameResult(
   const g4 = games.find(g => g.gameNumber === 4); // Championship final
 
   if (targetGame.gameNumber === 1) {
-    if (g4) g4.participantA = { collegeId: winnerCollegeId, placeholderText: winnerCollegeId, losses: 0 };
-    if (g3) g3.participantA = { collegeId: loserCollegeId, placeholderText: loserCollegeId, losses: 1 };
+    if (g4) {
+      g4.collegeA = winnerCollegeId;
+      g4.sourceDescriptionA = winnerCollegeId;
+      g4.participantA = { collegeId: winnerCollegeId, placeholderText: winnerCollegeId, losses: 0 };
+    }
+    if (g3) {
+      g3.collegeA = loserCollegeId;
+      g3.sourceDescriptionA = loserCollegeId;
+      g3.participantA = { collegeId: loserCollegeId, placeholderText: loserCollegeId, losses: 1 };
+    }
   }
   if (targetGame.gameNumber === 2) {
-    if (g4) g4.participantB = { collegeId: winnerCollegeId, placeholderText: winnerCollegeId, losses: 0 };
-    if (g3) g3.participantB = { collegeId: loserCollegeId, placeholderText: loserCollegeId, losses: 1 };
+    if (g4) {
+      g4.collegeB = winnerCollegeId;
+      g4.sourceDescriptionB = winnerCollegeId;
+      g4.participantB = { collegeId: winnerCollegeId, placeholderText: winnerCollegeId, losses: 0 };
+    }
+    if (g3) {
+      g3.collegeB = loserCollegeId;
+      g3.sourceDescriptionB = loserCollegeId;
+      g3.participantB = { collegeId: loserCollegeId, placeholderText: loserCollegeId, losses: 1 };
+    }
   }
 
-  if (g3 && g3.participantA?.collegeId && g3.participantB?.collegeId) {
+  if (
+    g3 &&
+    (g3.collegeA || g3.participantA?.collegeId) &&
+    (g3.collegeB || g3.participantB?.collegeId)
+  ) {
     g3.isUnlocked = true;
   }
-  if (g4 && g4.participantA?.collegeId && g4.participantB?.collegeId) {
+  if (
+    g4 &&
+    (g4.collegeA || g4.participantA?.collegeId) &&
+    (g4.collegeB || g4.participantB?.collegeId)
+  ) {
     g4.isUnlocked = true;
   }
 
@@ -882,4 +977,229 @@ export function checkScheduleConflicts(
     hasConflict: warnings.length > 0,
     warnings,
   };
+}
+
+// ----------------------------------------------------
+// 9. SPECIAL SPORTS SUB-EVENT BRACKETS HELPERS
+// ----------------------------------------------------
+export function isInherentlyMultiCategoryEventName(eventName?: string): boolean {
+  const name = (eventName || '').toLowerCase();
+  return (
+    name.includes('arnis') ||
+    name.includes('swimming') ||
+    name.includes('athletics') ||
+    name.includes('track and field') ||
+    name.includes('track & field') ||
+    name.includes('taekwondo') ||
+    name.includes('karate') ||
+    name.includes('boxing') ||
+    name.includes('judo')
+  );
+}
+
+export function canConfigureSubEvents(event?: Partial<PalakasanEvent> | null): boolean {
+  if (!event) return false;
+  if (event.isMultiCategoryEvent === true) return true;
+  if (event.subCategories && event.subCategories.length > 0) return true;
+  if (event.category === 'special') return true;
+  if (event.category === 'sports' && event.pointTier === 'special') return true;
+  return isInherentlyMultiCategoryEventName(event.eventName);
+}
+
+export function isSpecialMultiCategorySport(event?: Partial<PalakasanEvent> | null): boolean {
+  if (!event) return false;
+  if (event.isMultiCategoryEvent === false) return false;
+  if (event.isMultiCategoryEvent === true) return true;
+  if (event.subCategories && event.subCategories.length > 0) return true;
+  return isInherentlyMultiCategoryEventName(event.eventName);
+}
+
+export function getDefaultSubCategoriesForEvent(
+  eventName: string,
+  defaultFormat: CompetitionFormat = 'double-elimination'
+): Array<{ name: string; competitionFormat: CompetitionFormat }> {
+  const lower = (eventName || '').toLowerCase();
+  const hasMen = /\bmen\b/.test(lower) && !/\bwomen\b/.test(lower);
+  const hasWomen = /\bwomen\b/.test(lower) && !/\bmen\b/.test(lower);
+  const fmt: CompetitionFormat =
+    defaultFormat === 'single-elimination' || defaultFormat === 'round-robin'
+      ? defaultFormat
+      : 'double-elimination';
+
+  if (lower.includes('arnis')) {
+    if (hasMen) {
+      return [
+        { name: 'Anyo Solo Men', competitionFormat: fmt },
+        { name: 'Anyo Team Men (Synchronized)', competitionFormat: fmt },
+        { name: 'Laban Bantamweight Men', competitionFormat: fmt },
+        { name: 'Laban Featherweight Men', competitionFormat: fmt },
+        { name: 'Laban Lightweight Men', competitionFormat: fmt },
+        { name: 'Laban Welterweight Men', competitionFormat: fmt },
+        { name: 'Laban Open Weight Men', competitionFormat: fmt },
+      ];
+    }
+    if (hasWomen) {
+      return [
+        { name: 'Anyo Solo Women', competitionFormat: fmt },
+        { name: 'Anyo Team Women (Synchronized)', competitionFormat: fmt },
+        { name: 'Laban Bantamweight Women', competitionFormat: fmt },
+        { name: 'Laban Featherweight Women', competitionFormat: fmt },
+        { name: 'Laban Lightweight Women', competitionFormat: fmt },
+        { name: 'Laban Open Weight Women', competitionFormat: fmt },
+      ];
+    }
+    return [
+      { name: 'Anyo Solo Men', competitionFormat: fmt },
+      { name: 'Anyo Solo Women', competitionFormat: fmt },
+      { name: 'Anyo Team Men', competitionFormat: fmt },
+      { name: 'Anyo Team Women', competitionFormat: fmt },
+      { name: 'Laban Bantamweight', competitionFormat: fmt },
+      { name: 'Laban Featherweight', competitionFormat: fmt },
+      { name: 'Laban Lightweight', competitionFormat: fmt },
+      { name: 'Laban Open Weight', competitionFormat: fmt },
+    ];
+  }
+
+  if (lower.includes('swimming')) {
+    if (hasMen) {
+      return [
+        { name: '50m Freestyle Men', competitionFormat: fmt },
+        { name: '100m Breaststroke Men', competitionFormat: fmt },
+        { name: '50m Backstroke Men', competitionFormat: fmt },
+        { name: '50m Butterfly Men', competitionFormat: fmt },
+        { name: '4x50m Relay Men', competitionFormat: fmt },
+      ];
+    }
+    if (hasWomen) {
+      return [
+        { name: '50m Freestyle Women', competitionFormat: fmt },
+        { name: '100m Breaststroke Women', competitionFormat: fmt },
+        { name: '50m Backstroke Women', competitionFormat: fmt },
+        { name: '50m Butterfly Women', competitionFormat: fmt },
+        { name: '4x50m Relay Women', competitionFormat: fmt },
+      ];
+    }
+    return [
+      { name: '50m Freestyle Men', competitionFormat: fmt },
+      { name: '50m Freestyle Women', competitionFormat: fmt },
+      { name: '100m Breaststroke Men', competitionFormat: fmt },
+      { name: '100m Breaststroke Women', competitionFormat: fmt },
+      { name: '50m Backstroke Men', competitionFormat: fmt },
+      { name: '50m Backstroke Women', competitionFormat: fmt },
+      { name: '50m Butterfly', competitionFormat: fmt },
+      { name: '4x50m Medley / Freestyle Relay', competitionFormat: fmt },
+    ];
+  }
+
+  if (lower.includes('athletics') || lower.includes('track')) {
+    const suffix = hasMen ? ' Men' : hasWomen ? ' Women' : '';
+    return [
+      { name: `100m Dash${suffix}`, competitionFormat: fmt },
+      { name: `200m Dash${suffix}`, competitionFormat: fmt },
+      { name: `400m Run${suffix}`, competitionFormat: fmt },
+      { name: `4x100m Relay${suffix}`, competitionFormat: fmt },
+      { name: `Long Jump${suffix}`, competitionFormat: fmt },
+      { name: `Shot Put${suffix}`, competitionFormat: fmt },
+    ];
+  }
+
+  if (
+    lower.includes('taekwondo') ||
+    lower.includes('karate') ||
+    lower.includes('boxing') ||
+    lower.includes('judo')
+  ) {
+    const suffix = hasMen ? ' Men' : hasWomen ? ' Women' : '';
+    return [
+      { name: `Flyweight / Finweight${suffix}`, competitionFormat: fmt },
+      { name: `Bantamweight${suffix}`, competitionFormat: fmt },
+      { name: `Featherweight${suffix}`, competitionFormat: fmt },
+      { name: `Lightweight${suffix}`, competitionFormat: fmt },
+      { name: `Open Weight${suffix}`, competitionFormat: fmt },
+    ];
+  }
+
+  return [
+    { name: 'Category / Division 1', competitionFormat: fmt },
+    { name: 'Category / Division 2', competitionFormat: fmt },
+  ];
+}
+
+export function generateMatchesForSubCategory(
+  eventId: string,
+  subId: string,
+  format: CompetitionFormat,
+  colleges: CollegeId[],
+  date: string,
+  venue: string,
+  startTime: string
+): GameMatch[] {
+  const prefix = `${eventId}-${subId}`;
+  if (format === 'round-robin') {
+    return generateRoundRobinGames(prefix, colleges, date, venue, startTime).map(g => ({
+      ...g,
+      eventId,
+    }));
+  }
+  if (format === 'single-elimination') {
+    return generateSingleEliminationGames(prefix, colleges, date, venue, startTime).map(g => ({
+      ...g,
+      eventId,
+    }));
+  }
+  // Default to double-elimination for sub-event brackets
+  return generateDoubleEliminationGames(prefix, colleges, date, venue, startTime).map(g => ({
+    ...g,
+    eventId,
+  }));
+}
+
+export function buildSubCategoryWithMatches(
+  eventId: string,
+  subId: string,
+  name: string,
+  format: CompetitionFormat,
+  colleges: CollegeId[],
+  date: string,
+  venue: string,
+  startTime: string
+): SubCategoryDiscipline {
+  const normalizedFormat: CompetitionFormat =
+    format === 'round-robin' || format === 'single-elimination' || format === 'double-elimination'
+      ? format
+      : 'double-elimination';
+
+  const games = generateMatchesForSubCategory(
+    eventId,
+    subId,
+    normalizedFormat,
+    colleges,
+    date,
+    venue,
+    startTime
+  );
+
+  return {
+    id: subId,
+    name: name.trim(),
+    competitionFormat: normalizedFormat,
+    games,
+    results: [],
+  };
+}
+
+export function recomputeEventAccumulatedScores(
+  subCategories: SubCategoryDiscipline[],
+  participatingColleges: CollegeId[]
+): Record<CollegeId, number> {
+  const totals: Record<CollegeId, number> = {} as Record<CollegeId, number>;
+  participatingColleges.forEach(c => {
+    totals[c] = 0;
+  });
+  subCategories.forEach(sub => {
+    sub.results?.forEach(r => {
+      totals[r.collegeId] = (totals[r.collegeId] || 0) + (r.points || 0);
+    });
+  });
+  return totals;
 }

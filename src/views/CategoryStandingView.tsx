@@ -47,9 +47,11 @@ export const CategoryStandingView: React.FC<CategoryStandingViewProps> = ({
     e => e.category === categoryId && e.status === 'completed' && e.results && e.results.length > 0
   );
 
-  // Upcoming events in this category
+  // Upcoming / Ongoing / Paused events in this category
   const upcomingEvents = events.filter(
-    e => e.category === categoryId && (e.status === 'upcoming' || e.status === 'ongoing')
+    e =>
+      e.category === categoryId &&
+      (e.status === 'upcoming' || e.status === 'ongoing' || e.status === 'paused')
   );
 
   return (
@@ -502,7 +504,14 @@ export const CategoryStandingView: React.FC<CategoryStandingViewProps> = ({
               >
                 <div className="flex items-center justify-between text-[11px] text-slate-500">
                   <span>{event.date}</span>
-                  <span className="text-blue-700 font-semibold">{event.startTime}</span>
+                  <div className="flex items-center gap-1.5">
+                    {event.status === 'paused' && (
+                      <span className="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-bold uppercase">
+                        Paused
+                      </span>
+                    )}
+                    <span className="text-blue-700 font-semibold">{event.startTime}</span>
+                  </div>
                 </div>
                 <div className="font-bold text-slate-900 text-sm line-clamp-1">
                   {event.eventName}

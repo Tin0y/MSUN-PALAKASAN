@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Calendar, Clock, MapPin, Users, Award, Shield, CheckCircle2, Star, User, Phone } from 'lucide-react';
+import { X, Calendar, Clock, MapPin, Users, Award, Shield, CheckCircle2, Star, User, Phone, Pause, Layers } from 'lucide-react';
 import { usePalakasan } from '../context/PalakasanContext';
 import { CollegeId } from '../types';
 import { getEffectivePointTier } from '../data/initialData';
@@ -65,6 +65,13 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
                   Live Now
+                </span>
+              )}
+
+              {event.status === 'paused' && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                  <Pause className="w-3 h-3 text-amber-700" />
+                  <span>Paused — Resumes Soon</span>
                 </span>
               )}
 
@@ -150,6 +157,27 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
             </div>
           </div>
 
+          {/* Paused Multi-Day Notice */}
+          {event.status === 'paused' && (
+            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs space-y-1">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-bold text-amber-900 flex items-center gap-1.5">
+                  <Pause className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Tournament Temporarily Paused</span>
+                </span>
+                {event.resumeDate && (
+                  <span className="px-2 py-0.5 rounded bg-white border border-amber-200 font-semibold text-amber-800">
+                    Resumes: {event.resumeDate}
+                  </span>
+                )}
+              </div>
+              <p className="text-amber-800">
+                {event.pausedReason ||
+                  'Initial matches completed; remaining matches will resume on the next scheduled play day.'}
+              </p>
+            </div>
+          )}
+
           {/* Description */}
           <div>
             <div className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
@@ -184,6 +212,57 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
               })}
             </div>
           </div>
+
+          {/* Sub-Event Divisions & Brackets */}
+          {event.subCategories && event.subCategories.length > 0 && (
+            <div className="p-3.5 rounded-xl border border-purple-200 bg-purple-50/50 space-y-2.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold uppercase tracking-wider text-purple-900 flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-purple-600" />
+                  <span>Sub-Event Divisions ({event.subCategories.length})</span>
+                </span>
+                <span className="text-[10px] font-semibold text-purple-700">
+                  {event.subCategories.filter(s => Boolean(s.championCollegeId)).length} / {event.subCategories.length} decided
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {event.subCategories.map(sub => {
+                  const total = sub.games?.length || 0;
+                  const done = sub.games?.filter(g => g.status === 'completed').length || 0;
+                  const champStyle = sub.championCollegeId
+                    ? getCollegeBadgeStyle(sub.championCollegeId)
+                    : null;
+                  return (
+                    <div
+                      key={sub.id}
+                      className="p-2.5 rounded-lg bg-white border border-purple-100 flex items-center justify-between gap-2 text-xs"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-900 truncate">{sub.name}</div>
+                        {total > 0 && (
+                          <div className="text-[10px] text-slate-500">
+                            {done}/{total} matches played
+                          </div>
+                        )}
+                      </div>
+                      {sub.championCollegeId && champStyle ? (
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold border shrink-0 ${champStyle.bg} ${champStyle.text} ${champStyle.border}`}
+                        >
+                          👑 {sub.championCollegeId}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-semibold text-slate-400 shrink-0">
+                          Ongoing
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Final Results (If Completed) */}
           {event.status === 'completed' && event.results && (

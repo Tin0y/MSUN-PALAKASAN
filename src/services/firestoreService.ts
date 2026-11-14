@@ -876,6 +876,17 @@ export async function saveEvent(event: PalakasanEvent): Promise<void> {
   );
 }
 
+export async function replaceEvent(event: PalakasanEvent): Promise<void> {
+  const docRef = doc(db, 'events', event.id);
+  await setDoc(
+    docRef,
+    cleanForFirestore({
+      ...event,
+      updatedAt: new Date().toISOString(),
+    })
+  );
+}
+
 export async function saveEventsBatch(eventsList: PalakasanEvent[]): Promise<void> {
   if (!eventsList || eventsList.length === 0) return;
   const batch = writeBatch(db);

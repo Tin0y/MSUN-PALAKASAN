@@ -19,6 +19,9 @@ import {
   TrendingUp,
   User,
   Phone,
+  Pause,
+  Play,
+  Layers,
 } from 'lucide-react';
 import { usePalakasan } from '../../context/PalakasanContext';
 import { CollegeId, PalakasanEvent } from '../../types';
@@ -43,6 +46,8 @@ export const AdminEventDetailModal: React.FC<AdminEventDetailModalProps> = ({
 }) => {
   const {
     startOngoingEvent,
+    pauseEvent,
+    resumeEvent,
     markEventCompleted,
     cancelEvent,
     postponeEvent,
@@ -68,6 +73,9 @@ export const AdminEventDetailModal: React.FC<AdminEventDetailModalProps> = ({
 
   const [isPostponing, setIsPostponing] = useState(false);
   const [postponeNote, setPostponeNote] = useState('');
+  const [isPausing, setIsPausing] = useState(false);
+  const [pauseReason, setPauseReason] = useState('');
+  const [pauseResumeDate, setPauseResumeDate] = useState('');
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   if (!isOpen || !event) return null;
@@ -111,6 +119,15 @@ export const AdminEventDetailModal: React.FC<AdminEventDetailModalProps> = ({
     setIsPostponing(false);
   };
 
+  const handleConfirmPause = () => {
+    pauseEvent(event.id, pauseReason, pauseResumeDate);
+    setIsPausing(false);
+  };
+
+  const handleResume = () => {
+    resumeEvent(event.id);
+  };
+
   const handleDelete = () => {
     setIsDeleteModalOpen(true);
   };
@@ -132,7 +149,9 @@ export const AdminEventDetailModal: React.FC<AdminEventDetailModalProps> = ({
               <span
                 className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                   event.status === 'ongoing'
-                    ? 'bg-blue-600 text-white animate-pulse'
+                    ? 'bg-blue-600 text-white'
+                    : event.status === 'paused'
+                    ? 'bg-amber-100 text-amber-800 border border-amber-300'
                     : event.status === 'completed'
                     ? 'bg-emerald-100 text-emerald-800'
                     : event.status === 'cancelled'
@@ -175,14 +194,52 @@ export const AdminEventDetailModal: React.FC<AdminEventDetailModalProps> = ({
               )}
 
               {event.status === 'ongoing' && (
-                <button
-                  type="button"
-                  onClick={handleMarkCompleted}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-xs transition-colors"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Mark Completed</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsPausing(true);
+                      setPauseReason(
+                        event.pausedReason ||
+                          'Games 1–3 completed; remaining matches scheduled for another day'
+                      );
+                      setPauseResumeDate(event.resumeDate || '');
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 font-bold rounded-lg shadow-2xs transition-colors"
+                  >
+                    <Pause className="w-3.5 h-3.5" />
+                    <span>Pause Event</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleMarkCompleted}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-xs transition-colors"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Mark Completed</span>
+                  </button>
+                </>
+              )}
+
+              {event.status === 'paused' && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleResume}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-xs transition-colors"
+                  >
+                    <Play className="w-3.5 h-3.5" />
+                    <span>Resume Event (Live)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleMarkCompleted}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold rounded-lg shadow-2xs transition-colors"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Mark Completed</span>
+                  </button>
+                </>
               )}
 
               <button
@@ -217,7 +274,7 @@ export const AdminEventDetailModal: React.FC<AdminEventDetailModalProps> = ({
                 </button>
               )}
 
-              {event.status !== 'completed' && event.status !== 'postponed' && (
+              {event.status !== 'completed' && event.status !== 'postponed' && event.status !== 'paused' && (
                 <button
                   type="button"
                   onClick={() => {
@@ -232,6 +289,83 @@ export const AdminEventDetailModal: React.FC<AdminEventDetailModalProps> = ({
               )}
             </div>
           </div>
+
+          {/* Paused Event Info Banner */}
+          {event.status === 'paused' && (
+            <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2 font-bold text-amber-900">
+                  <Pause className="w-4 h-4 text-amber-700" />
+                  <span>Event Paused — Multi-Day Continuation</span>
+                  {event.resumeDate && (
+                    <span className="px-2 py-0.5 rounded bg-white border border-amber-200 text-[11px] font-semibold text-amber-800">
+                      Resumes: {event.resumeDate}
+                    </span>
+                  )}
+                </div>
+                <p className="text-amber-800 text-[11px]">
+                  {event.pausedReason || 'Earlier games completed; remaining matches scheduled for another day.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleResume}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold shrink-0"
+              >
+                <Play className="w-3.5 h-3.5" />
+                <span>Resume Now</span>
+              </button>
+            </div>
+          )}
+
+          {/* Pause Event Inline Panel */}
+          {isPausing && (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2.5 animate-fadeIn">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-amber-900 flex items-center gap-1.5">
+                  <Pause className="w-4 h-4 text-amber-700" />
+                  <span>Pause Multi-Day Event</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsPausing(false)}
+                  className="text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <input
+                type="text"
+                value={pauseReason}
+                onChange={e => setPauseReason(e.target.value)}
+                placeholder="Progress note (e.g. Games 1–3 played today; Game 4 to Finals next day)..."
+                className="w-full px-3 py-1.5 bg-white border border-amber-300 rounded-lg"
+              />
+              <input
+                type="text"
+                value={pauseResumeDate}
+                onChange={e => setPauseResumeDate(e.target.value)}
+                placeholder="Planned resume date & time (e.g. Tomorrow, 09:00 AM)..."
+                className="w-full px-3 py-1.5 bg-white border border-amber-300 rounded-lg"
+              />
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsPausing(false)}
+                  className="px-3 py-1 rounded-lg text-slate-600"
+                >
+                  Dismiss
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmPause}
+                  className="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold"
+                >
+                  Confirm Pause
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Quick Reschedule Inline Panel */}
           {isRescheduling && (
@@ -577,8 +711,59 @@ export const AdminEventDetailModal: React.FC<AdminEventDetailModalProps> = ({
             </div>
           </div>
 
+          {/* Sub-Event Divisions & Brackets (for Special Sports like Arnis / Swimming) */}
+          {event.subCategories && event.subCategories.length > 0 && (
+            <div className="p-4 rounded-xl border border-purple-200 bg-purple-50/40 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 font-extrabold text-purple-950">
+                  <Layers className="w-4 h-4 text-purple-600" />
+                  <span>Sub-Event Divisions & Brackets ({event.subCategories.length})</span>
+                </div>
+                <span className="text-[10px] font-bold text-purple-700">
+                  {event.subCategories.filter(s => Boolean(s.championCollegeId)).length} / {event.subCategories.length} champions decided
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {event.subCategories.map(sub => {
+                  const total = sub.games?.length || 0;
+                  const done = sub.games?.filter(g => g.status === 'completed').length || 0;
+                  const champBadge = sub.championCollegeId
+                    ? getCollegeBadgeStyle(sub.championCollegeId)
+                    : null;
+                  return (
+                    <div
+                      key={sub.id}
+                      className="p-2.5 rounded-lg bg-white border border-purple-100 flex items-center justify-between gap-2"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-900 truncate">{sub.name}</div>
+                        <div className="text-[10px] text-slate-500">
+                          {(sub.competitionFormat || 'double-elimination').replace('-', ' ')} • {done}/{total} matches
+                        </div>
+                      </div>
+                      {sub.championCollegeId && champBadge ? (
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-black shrink-0 ${champBadge.bg} ${champBadge.text}`}
+                        >
+                          👑 {sub.championCollegeId}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-semibold text-slate-400 shrink-0">
+                          In Progress
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Tournament Competition Matches & Brackets */}
-          {event.games && event.games.length > 0 && (
+          {event.games &&
+            event.games.length > 0 &&
+            !(event.subCategories && event.subCategories.some(s => (s.games?.length || 0) > 0)) && (
             <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 font-extrabold text-slate-900">
@@ -597,8 +782,12 @@ export const AdminEventDetailModal: React.FC<AdminEventDetailModalProps> = ({
                   const isDone = g.status === 'completed';
                   const isLive = g.status === 'ongoing';
                   const isCancelled = g.status === 'cancelled';
-                  const badgeA = g.collegeA ? getCollegeBadgeStyle(g.collegeA) : null;
-                  const badgeB = g.collegeB ? getCollegeBadgeStyle(g.collegeB) : null;
+                  const teamA = g.collegeA || g.participantA?.collegeId;
+                  const teamB = g.collegeB || g.participantB?.collegeId;
+                  const descA = g.sourceDescriptionA || g.participantA?.placeholderText || 'TBD';
+                  const descB = g.sourceDescriptionB || g.participantB?.placeholderText || 'TBD';
+                  const badgeA = teamA ? getCollegeBadgeStyle(teamA) : null;
+                  const badgeB = teamB ? getCollegeBadgeStyle(teamB) : null;
 
                   return (
                     <div
@@ -634,20 +823,20 @@ export const AdminEventDetailModal: React.FC<AdminEventDetailModalProps> = ({
 
                       <div className="flex items-center justify-between text-xs font-semibold">
                         <div className="flex items-center gap-1.5">
-                          {g.collegeA && badgeA ? (
+                          {teamA && badgeA ? (
                             <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${badgeA.bg} ${badgeA.text}`}>
-                              {g.collegeA}
+                              {teamA}
                             </span>
                           ) : (
-                            <span className="text-slate-400 italic text-[11px]">{g.sourceDescriptionA || 'TBD'}</span>
+                            <span className="text-slate-400 italic text-[11px]">{descA}</span>
                           )}
                           <span className="text-slate-400 font-normal">vs</span>
-                          {g.collegeB && badgeB ? (
+                          {teamB && badgeB ? (
                             <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${badgeB.bg} ${badgeB.text}`}>
-                              {g.collegeB}
+                              {teamB}
                             </span>
                           ) : (
-                            <span className="text-slate-400 italic text-[11px]">{g.sourceDescriptionB || 'TBD'}</span>
+                            <span className="text-slate-400 italic text-[11px]">{descB}</span>
                           )}
                         </div>
 

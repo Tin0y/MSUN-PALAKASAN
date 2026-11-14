@@ -206,6 +206,8 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                               ? 'bg-slate-100 text-slate-600 border-slate-200'
                               : event.status === 'ongoing'
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : event.status === 'paused'
+                              ? 'bg-amber-100 text-amber-800 border-amber-300'
                               : 'bg-blue-50 text-blue-700 border-blue-200'
                           }`}
                         >

@@ -38,6 +38,10 @@ import {
   getNormalizedScoringRules,
 } from '../../data/initialData';
 import { getCollegeBadgeStyle } from '../../utils/collegeTheme';
+import {
+  getDefaultSubCategoriesForEvent,
+  isSpecialMultiCategorySport,
+} from '../../utils/competitionEngine';
 
 interface AdminDeclareWinnerModalProps {
   isOpen: boolean;
@@ -168,12 +172,8 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
     const initialTier: PointTier = getEffectivePointTier(event, currentPalakasan?.scoringRules);
     setSelectedTier(initialTier);
 
-    // Initial Tab Selection: Default to multiCategory for Arnis and Swimming
-    const shouldBeMulti =
-      event.isMultiCategoryEvent ||
-      event.eventName.toLowerCase().includes('arnis') ||
-      event.eventName.toLowerCase().includes('swimming') ||
-      Boolean(event.subCategories && event.subCategories.length > 0);
+    // Initial Tab Selection: Default to multiCategory only for multi-division events
+    const shouldBeMulti = isSpecialMultiCategorySport(event);
 
     setActiveTab(shouldBeMulti ? 'multiCategory' : 'standard');
 
@@ -222,29 +222,19 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
         };
       });
       setCategoryDrafts(loaded);
-    } else if (event.eventName.toLowerCase().includes('arnis')) {
-      const defaults: CategoryResultDraft[] = DEFAULT_ARNIS_CATEGORIES.map((name, idx) => ({
-        id: `arnis-cat-${idx}`,
-        name,
-        placements: {
-          'CBIT': '',
-          'CESS-IDS': '',
-          'CFMS': '',
-          'CELS': '',
-        },
-      }));
-      setCategoryDrafts(defaults);
-    } else if (event.eventName.toLowerCase().includes('swimming')) {
-      const defaults: CategoryResultDraft[] = DEFAULT_SWIMMING_CATEGORIES.map((name, idx) => ({
-        id: `swim-cat-${idx}`,
-        name,
-        placements: {
-          'CBIT': '',
-          'CESS-IDS': '',
-          'CFMS': '',
-          'CELS': '',
-        },
-      }));
+    } else if (isSpecialMultiCategorySport(event)) {
+      const defaults: CategoryResultDraft[] = getDefaultSubCategoriesForEvent(event.eventName).map(
+        (item, idx) => ({
+          id: `sub-${idx + 1}`,
+          name: item.name,
+          placements: {
+            'CBIT': '',
+            'CESS-IDS': '',
+            'CFMS': '',
+            'CELS': '',
+          },
+        })
+      );
       setCategoryDrafts(defaults);
     } else {
       setCategoryDrafts([]);
@@ -263,12 +253,7 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
 
   const isAlreadyOfficial = event.resultStatus === 'official';
 
-  const isArnisOrSwimming = Boolean(
-    event.eventName.toLowerCase().includes('arnis') ||
-      event.eventName.toLowerCase().includes('swimming') ||
-      event.isMultiCategoryEvent ||
-      (event.subCategories && event.subCategories.length > 0)
-  );
+  const isArnisOrSwimming = isSpecialMultiCategorySport(event);
 
   const handlePlacementChange = (colId: CollegeId, placement: Placement) => {
     setResultsMap(prev => ({
@@ -361,20 +346,25 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
     setActiveTab('standard');
   };
 
-  // Compile subCategories for Firestore persistence
+  // Compile subCategories for Firestore persistence while preserving any bracket matches
   const getCompiledSubCategories = (): SubCategoryDiscipline[] => {
-    return categoryDrafts.map(cat => ({
-      id: cat.id,
-      name: cat.name,
-      results: participating.map(colId => {
-        const plc = cat.placements[colId] || ('6th' as DisciplinePlacement);
-        return {
-          collegeId: colId,
-          placement: plc as DisciplinePlacement,
-          points: plc ? (disciplinePointsConfig[plc] ?? 0) : 0,
-        };
-      }),
-    }));
+    const existingSubs = event.subCategories || [];
+    return categoryDrafts.map(cat => {
+      const existing = existingSubs.find(s => s.id === cat.id || s.name === cat.name);
+      return {
+        ...(existing || {}),
+        id: cat.id,
+        name: cat.name,
+        results: participating.map(colId => {
+          const plc = cat.placements[colId] || ('6th' as DisciplinePlacement);
+          return {
+            collegeId: colId,
+            placement: plc as DisciplinePlacement,
+            points: plc ? (disciplinePointsConfig[plc] ?? 0) : 0,
+          };
+        }),
+      };
+    });
   };
 
   // Strict Validation Rules Check
@@ -444,15 +434,18 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
     setIsSubmitting(true);
     setValidationError(null);
     try {
-      const compiledSubs = getCompiledSubCategories();
+      const useMultiMeta =
+        activeTab === 'multiCategory' ||
+        (isSpecialMultiCategorySport(event) && categoryDrafts.length > 0);
+      const compiledSubs = useMultiMeta ? getCompiledSubCategories() : undefined;
       await updateEvent(
         event.id,
         {
           pointTier: selectedTier,
           isMajor: selectedTier !== 'minor',
-          isMultiCategoryEvent: categoryDrafts.length > 0 || isArnisOrSwimming,
+          isMultiCategoryEvent: useMultiMeta,
           subCategories: compiledSubs,
-          accumulatedScores: accumulatedScores.scores,
+          accumulatedScores: useMultiMeta ? accumulatedScores.scores : undefined,
         },
         committeeUser
       );
@@ -481,7 +474,10 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
     setIsSubmitting(true);
     setValidationError(null);
     try {
-      const compiledSubs = getCompiledSubCategories();
+      const useMultiMeta =
+        activeTab === 'multiCategory' ||
+        (isSpecialMultiCategorySport(event) && categoryDrafts.length > 0);
+      const compiledSubs = useMultiMeta ? getCompiledSubCategories() : undefined;
 
       // Update event with subCategories and accumulated scores metadata
       await updateEvent(
@@ -489,9 +485,9 @@ export const AdminDeclareWinnerModal: React.FC<AdminDeclareWinnerModalProps> = (
         {
           pointTier: selectedTier,
           isMajor: selectedTier !== 'minor',
-          isMultiCategoryEvent: categoryDrafts.length > 0 || isArnisOrSwimming,
+          isMultiCategoryEvent: useMultiMeta,
           subCategories: compiledSubs,
-          accumulatedScores: accumulatedScores.scores,
+          accumulatedScores: useMultiMeta ? accumulatedScores.scores : undefined,
         },
         committeeUser
       );

@@ -153,7 +153,11 @@ export const AdminResultsManagement: React.FC<AdminResultsManagementProps> = ({
   const pendingEvents = events.filter(
     e =>
       (!e.resultStatus || e.resultStatus === 'pending') &&
-      (e.status === 'completed' || e.status === 'ongoing' || !e.results || e.results.length === 0)
+      (e.status === 'completed' ||
+        e.status === 'ongoing' ||
+        e.status === 'paused' ||
+        !e.results ||
+        e.results.length === 0)
   );
 
   const draftEvents = events.filter(e => e.resultStatus === 'draft');

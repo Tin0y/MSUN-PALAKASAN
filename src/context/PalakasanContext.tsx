@@ -8,6 +8,7 @@ import {
   CollegeId,
   CollegeStanding,
   CompetitionFormat,
+  DisciplinePlacement,
   EventResultItem,
   EventStatus,
   GameMatch,
@@ -17,6 +18,7 @@ import {
   Placement,
   PointTransaction,
   ResultStatus,
+  SubCategoryDiscipline,
   Venue,
   CommitteeAccount,
   RankingsVisibilityConfig,
@@ -50,6 +52,7 @@ import {
   deleteVenue as removeVenueDoc,
   checkVenueConflict,
   saveEvent,
+  replaceEvent,
   saveEventsBatch,
   removeEvent,
   certifyEventResult,
@@ -62,12 +65,17 @@ import {
   recordGrievancePointDeduction,
 } from '../services/firestoreService';
 import {
+  buildSubCategoryWithMatches,
   calculateRoundRobinStandings,
   generateDoubleEliminationGames,
+  generateMatchesForSubCategory,
   generateRoundRobinGames,
   generateSingleEliminationGames,
+  getDefaultSubCategoriesForEvent,
+  isSpecialMultiCategorySport,
   processDoubleEliminationGameResult,
   processSingleEliminationGameResult,
+  recomputeEventAccumulatedScores,
 } from '../utils/competitionEngine';
 import { auth, googleProvider, signInWithPopup, signOut, onAuthStateChanged, User } from '../lib/firebase';
 import {
@@ -75,6 +83,7 @@ import {
   CATEGORIES as FALLBACK_CATEGORIES,
   INITIAL_EVENTS as FALLBACK_EVENTS,
   getEffectivePointTier,
+  getNormalizedScoringRules,
 } from '../data/initialData';
 
 export interface EventStatsSummary {
@@ -82,6 +91,7 @@ export interface EventStatsSummary {
   totalEvents: number;
   upcomingEvents: number;
   ongoingEvents: number;
+  pausedEvents: number;
   completedEvents: number;
   eventsAwaitingFinalResults: number;
   pendingResultsEvents: number;
@@ -165,6 +175,8 @@ interface PalakasanContextType {
   changeVenue: (id: string, venue: string, adminUser?: string) => Promise<void>;
   changeParticipants: (id: string, participatingColleges: CollegeId[], adminUser?: string) => Promise<void>;
   startOngoingEvent: (id: string, adminUser?: string) => Promise<void>;
+  pauseEvent: (id: string, reason?: string, resumeDate?: string, adminUser?: string) => Promise<void>;
+  resumeEvent: (id: string, adminUser?: string) => Promise<void>;
   markEventCompleted: (id: string, force?: boolean, adminUser?: string) => Promise<{ success: boolean; error?: string }>;
   cancelEvent: (id: string, reason?: string, adminUser?: string) => Promise<void>;
   postponeEvent: (id: string, newDateInfo?: string, adminUser?: string) => Promise<void>;
@@ -177,7 +189,8 @@ interface PalakasanContextType {
     scoreB: number,
     winnerCollegeId: CollegeId,
     loserCollegeId: CollegeId,
-    adminUser?: string
+    adminUser?: string,
+    subCategoryId?: string
   ) => Promise<{ success: boolean; error?: string }>;
   editGameResult: (
     eventId: string,
@@ -187,7 +200,8 @@ interface PalakasanContextType {
     winnerCollegeId: CollegeId,
     loserCollegeId: CollegeId,
     reason?: string,
-    adminUser?: string
+    adminUser?: string,
+    subCategoryId?: string
   ) => Promise<{ success: boolean; error?: string }>;
   rescheduleGame: (
     eventId: string,
@@ -196,11 +210,62 @@ interface PalakasanContextType {
     startTime: string,
     endTime: string,
     venue?: string,
-    adminUser?: string
+    adminUser?: string,
+    subCategoryId?: string
   ) => Promise<{ success: boolean; error?: string }>;
   generateEventMatches: (
     eventId: string,
     format: CompetitionFormat,
+    adminUser?: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  updateGameParticipants: (
+    eventId: string,
+    gameId: string,
+    collegeA?: CollegeId | '',
+    collegeB?: CollegeId | '',
+    adminUser?: string,
+    subCategoryId?: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  updateEventBracketPairings: (
+    eventId: string,
+    updatedGames: GameMatch[],
+    participatingColleges?: CollegeId[],
+    adminUser?: string,
+    subCategoryId?: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  initializeEventSubCategories: (
+    eventId: string,
+    items: Array<{ name: string; competitionFormat: CompetitionFormat }>,
+    adminUser?: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  addEventSubCategory: (
+    eventId: string,
+    name: string,
+    format?: CompetitionFormat,
+    adminUser?: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  removeEventSubCategory: (
+    eventId: string,
+    subCategoryId: string,
+    adminUser?: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  generateSubCategoryMatches: (
+    eventId: string,
+    subCategoryId: string,
+    format: CompetitionFormat,
+    adminUser?: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  deleteEventBracket: (
+    eventId: string,
+    adminUser?: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  disableEventSubCategories: (
+    eventId: string,
+    format?: CompetitionFormat,
+    adminUser?: string
+  ) => Promise<{ success: boolean; error?: string }>;
+  enableEventSubCategories: (
+    eventId: string,
     adminUser?: string
   ) => Promise<{ success: boolean; error?: string }>;
 
@@ -879,6 +944,7 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const totalEvents = events.length;
     const upcomingEvents = events.filter(e => e.status === 'upcoming').length;
     const ongoingEvents = events.filter(e => e.status === 'ongoing').length;
+    const pausedEvents = events.filter(e => e.status === 'paused').length;
     const completedEvents = events.filter(e => e.status === 'completed').length;
     const pendingResultsEvents = events.filter(
       e => e.status === 'completed' && (!e.resultStatus || e.resultStatus === 'pending' || e.resultStatus === 'draft')
@@ -910,6 +976,7 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       totalEvents,
       upcomingEvents,
       ongoingEvents,
+      pausedEvents,
       completedEvents,
       eventsAwaitingFinalResults: pendingResultsEvents,
       pendingResultsEvents,
@@ -980,17 +1047,44 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       for (let i = 0; i < initialEvents.length; i++) {
         const evData = initialEvents[i];
         const newEventId = `ev-${evData.category}-${edition.year}-${i + 1}-${Date.now()}`;
+        const eventVenue = evData.venue || 'Campus Court';
+        const eventDate = evData.date || edition.startDate;
+        const eventStart = evData.startTime || '08:00 AM';
+        const evColleges = evData.participatingColleges || participatingColleges;
+
+        let initialSubCategories = evData.subCategories;
+        let isMultiCat = evData.isMultiCategoryEvent;
+
+        if (
+          evData.isMultiCategoryEvent !== false &&
+          isSpecialMultiCategorySport(evData) &&
+          (!initialSubCategories || initialSubCategories.length === 0)
+        ) {
+          isMultiCat = true;
+          const presets = getDefaultSubCategoriesForEvent(
+            evData.eventName,
+            evData.competitionFormat || 'double-elimination'
+          );
+          initialSubCategories = presets.map((item, idx) =>
+            buildSubCategoryWithMatches(
+              newEventId,
+              `sub-${idx + 1}`,
+              item.name,
+              item.competitionFormat,
+              evColleges,
+              eventDate,
+              eventVenue,
+              eventStart
+            )
+          );
+        }
+
         let initialGames = evData.games;
-
-        if (!initialGames && evData.competitionFormat) {
-          const eventVenue = evData.venue || 'Campus Court';
-          const eventDate = evData.date || edition.startDate;
-          const eventStart = evData.startTime || '08:00 AM';
-
+        if (!initialGames && evData.competitionFormat && !isMultiCat) {
           if (evData.competitionFormat === 'double-elimination') {
             initialGames = generateDoubleEliminationGames(
               newEventId,
-              participatingColleges,
+              evColleges,
               eventDate,
               eventVenue,
               eventStart
@@ -998,23 +1092,18 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           } else if (evData.competitionFormat === 'round-robin') {
             initialGames = generateRoundRobinGames(
               newEventId,
-              participatingColleges,
+              evColleges,
               eventDate,
               eventVenue,
               eventStart
             );
-          } else if (evData.competitionFormat === 'single-elimination') {
+          } else if (
+            evData.competitionFormat === 'single-elimination' ||
+            evData.competitionFormat === 'head-to-head'
+          ) {
             initialGames = generateSingleEliminationGames(
               newEventId,
-              participatingColleges,
-              eventDate,
-              eventVenue,
-              eventStart
-            );
-          } else if (evData.competitionFormat === 'head-to-head') {
-            initialGames = generateSingleEliminationGames(
-              newEventId,
-              participatingColleges,
+              evColleges,
               eventDate,
               eventVenue,
               eventStart
@@ -1027,7 +1116,9 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           id: newEventId,
           palakasanId: edition.id,
           games: initialGames,
-          participatingColleges: evData.participatingColleges || participatingColleges,
+          ...(isMultiCat !== undefined ? { isMultiCategoryEvent: isMultiCat } : {}),
+          ...(initialSubCategories ? { subCategories: initialSubCategories } : {}),
+          participatingColleges: evColleges,
           status: 'upcoming',
           resultStatus: 'pending',
           createdAt: new Date().toISOString(),
@@ -1105,9 +1196,35 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const addEvent = async (eventData: Omit<PalakasanEvent, 'id'>, adminUser = adminUserDisplay): Promise<string> => {
     const newId = `ev-${eventData.category}-${Date.now()}`;
-    let initialGames = eventData.games;
+    let initialSubCategories = eventData.subCategories;
+    let isMultiCat = eventData.isMultiCategoryEvent;
 
-    if (!initialGames && eventData.competitionFormat) {
+    if (
+      eventData.isMultiCategoryEvent !== false &&
+      isSpecialMultiCategorySport(eventData) &&
+      (!initialSubCategories || initialSubCategories.length === 0)
+    ) {
+      isMultiCat = true;
+      const presets = getDefaultSubCategoriesForEvent(
+        eventData.eventName,
+        eventData.competitionFormat || 'double-elimination'
+      );
+      initialSubCategories = presets.map((item, idx) =>
+        buildSubCategoryWithMatches(
+          newId,
+          `sub-${idx + 1}`,
+          item.name,
+          item.competitionFormat,
+          eventData.participatingColleges,
+          eventData.date,
+          eventData.venue,
+          eventData.startTime
+        )
+      );
+    }
+
+    let initialGames = eventData.games;
+    if (!initialGames && eventData.competitionFormat && !isMultiCat) {
       if (eventData.competitionFormat === 'double-elimination') {
         initialGames = generateDoubleEliminationGames(
           newId,
@@ -1124,7 +1241,10 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           eventData.venue,
           eventData.startTime
         );
-      } else if (eventData.competitionFormat === 'single-elimination') {
+      } else if (
+        eventData.competitionFormat === 'single-elimination' ||
+        eventData.competitionFormat === 'head-to-head'
+      ) {
         initialGames = generateSingleEliminationGames(
           newId,
           eventData.participatingColleges,
@@ -1140,6 +1260,8 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       id: newId,
       palakasanId: viewedPalakasanId,
       games: initialGames,
+      ...(isMultiCat !== undefined ? { isMultiCategoryEvent: isMultiCat } : {}),
+      ...(initialSubCategories ? { subCategories: initialSubCategories } : {}),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -1162,7 +1284,7 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!existing) return;
 
     const merged = { ...existing, ...updates, updatedAt: new Date().toISOString() };
-    await saveEvent(merged);
+    await replaceEvent(merged);
 
     await addDatabaseLog(
       'Updated Event Details',
@@ -1205,6 +1327,61 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     await updateEvent(id, { status: 'ongoing' }, adminUser);
   };
 
+  const pauseEvent = async (
+    id: string,
+    reason?: string,
+    resumeDate?: string,
+    adminUser = adminUserDisplay
+  ) => {
+    const existing = events.find(e => e.id === id);
+    if (!existing) return;
+
+    const cleanReason = reason?.trim() || 'Paused — Remaining games scheduled for another day';
+    const cleanResume = resumeDate?.trim() || '';
+    const updated: PalakasanEvent = {
+      ...existing,
+      status: 'paused',
+      pausedReason: cleanReason,
+      pausedAt: new Date().toISOString(),
+      resumeDate: cleanResume,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await saveEvent(updated);
+    await addDatabaseLog(
+      'Paused Event',
+      `Paused "${existing.eventName}" (${cleanReason}${cleanResume ? ` • Resumes: ${cleanResume}` : ''}).`,
+      adminUser,
+      existing.eventName,
+      id,
+      viewedPalakasanId
+    );
+  };
+
+  const resumeEvent = async (id: string, adminUser = adminUserDisplay) => {
+    const existing = events.find(e => e.id === id);
+    if (!existing) return;
+
+    const updated: PalakasanEvent = {
+      ...existing,
+      status: 'ongoing',
+      pausedReason: '',
+      pausedAt: '',
+      resumeDate: '',
+      updatedAt: new Date().toISOString(),
+    };
+
+    await saveEvent(updated);
+    await addDatabaseLog(
+      'Resumed Event',
+      `Resumed "${existing.eventName}" back to Ongoing (Live) for remaining matches.`,
+      adminUser,
+      existing.eventName,
+      id,
+      viewedPalakasanId
+    );
+  };
+
   const markEventCompleted = async (id: string, force = false, adminUser = adminUserDisplay): Promise<{ success: boolean; error?: string }> => {
     const existing = events.find(e => e.id === id);
     if (!existing) return { success: false, error: 'Event not found' };
@@ -1242,11 +1419,170 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     scoreB: number,
     winnerCollegeId: CollegeId,
     loserCollegeId: CollegeId,
-    adminUser = adminUserDisplay
+    adminUser = adminUserDisplay,
+    subCategoryId?: string
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       const event = events.find(e => e.id === eventId);
       if (!event) return { success: false, error: 'Event not found.' };
+
+      // -------------------------------------------------------------
+      // BRANCH A: SUB-EVENT BRACKET RESULT (e.g. Arnis Bantamweight)
+      // -------------------------------------------------------------
+      if (subCategoryId) {
+        const subCategories = event.subCategories || [];
+        const targetSub = subCategories.find(s => s.id === subCategoryId);
+        if (!targetSub) return { success: false, error: 'Sub-event division not found.' };
+
+        const games = targetSub.games || [];
+        const targetGame = games.find(g => g.id === gameId);
+        if (!targetGame) return { success: false, error: 'Game match not found in sub-event.' };
+
+        const fmt = targetSub.competitionFormat || 'double-elimination';
+        const virtualEvent: PalakasanEvent = {
+          ...event,
+          competitionFormat: fmt,
+          tieBreakerRule: targetSub.tieBreakerRule || event.tieBreakerRule,
+          games,
+          eliminatedColleges: targetSub.eliminatedColleges,
+          roundRobinStats: targetSub.roundRobinStats,
+          championCollegeId: targetSub.championCollegeId,
+        };
+
+        let updatedSub: SubCategoryDiscipline = { ...targetSub };
+        let logDetail = '';
+        const disciplinePtsCfg = getNormalizedScoringRules(
+          currentPalakasan?.scoringRules
+        ).byCategory.sports.disciplinePoints;
+
+        const mapRankingsToDisciplineResults = (rankings?: EventResultItem[]) => {
+          if (!rankings || rankings.length === 0) return targetSub.results || [];
+          return rankings.map(r => {
+            const plc = r.placement as DisciplinePlacement;
+            return {
+              collegeId: r.collegeId,
+              placement: plc,
+              points: disciplinePtsCfg[plc] ?? 0,
+            };
+          });
+        };
+
+        if (fmt === 'double-elimination') {
+          const res = processDoubleEliminationGameResult(
+            virtualEvent,
+            gameId,
+            scoreA,
+            scoreB,
+            winnerCollegeId,
+            loserCollegeId,
+            false,
+            currentPalakasan?.scoringRules
+          );
+          updatedSub.games = res.updatedGames;
+          updatedSub.eliminatedColleges = res.eliminated;
+          if (res.champion) {
+            updatedSub.championCollegeId = res.champion;
+            updatedSub.results = mapRankingsToDisciplineResults(res.finalRankings);
+            logDetail = `[${targetSub.name}] Game #${targetGame.gameNumber} completed (${winnerCollegeId} ${scoreA}-${scoreB} ${loserCollegeId}). Sub-event Champion: ${res.champion}!`;
+          } else {
+            logDetail = `[${targetSub.name}] Game #${targetGame.gameNumber} completed: ${winnerCollegeId} defeated ${loserCollegeId} (${scoreA}-${scoreB}).`;
+          }
+        } else if (fmt === 'round-robin') {
+          const updatedGames = games.map(g =>
+            g.id === gameId
+              ? {
+                  ...g,
+                  scoreA,
+                  scoreB,
+                  winnerCollegeId,
+                  loserCollegeId,
+                  status: 'completed' as GameStatus,
+                  completedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                }
+              : g
+          );
+          const rrResult = calculateRoundRobinStandings(
+            event.participatingColleges,
+            updatedGames,
+            virtualEvent.tieBreakerRule || 'competition-points',
+            virtualEvent,
+            currentPalakasan?.scoringRules
+          );
+          updatedSub.games = updatedGames;
+          updatedSub.roundRobinStats = rrResult.table;
+          if (rrResult.isAllCompleted && rrResult.champion) {
+            updatedSub.championCollegeId = rrResult.champion;
+            updatedSub.results = mapRankingsToDisciplineResults(rrResult.finalRankings);
+            logDetail = `[${targetSub.name}] Round robin completed! Sub-event Champion: ${rrResult.champion}.`;
+          } else {
+            logDetail = `[${targetSub.name}] Match completed (${winnerCollegeId} ${scoreA}-${scoreB} ${loserCollegeId}).`;
+          }
+        } else if (fmt === 'single-elimination') {
+          const res = processSingleEliminationGameResult(
+            virtualEvent,
+            gameId,
+            scoreA,
+            scoreB,
+            winnerCollegeId,
+            loserCollegeId,
+            currentPalakasan?.scoringRules
+          );
+          updatedSub.games = res.updatedGames;
+          if (res.champion) {
+            updatedSub.championCollegeId = res.champion;
+            updatedSub.results = mapRankingsToDisciplineResults(res.finalRankings);
+            logDetail = `[${targetSub.name}] Single elimination final completed! Sub-event Champion: ${res.champion}.`;
+          } else {
+            logDetail = `[${targetSub.name}] Match completed (${winnerCollegeId} ${scoreA}-${scoreB} ${loserCollegeId}).`;
+          }
+        } else {
+          updatedSub.games = games.map(g =>
+            g.id === gameId
+              ? {
+                  ...g,
+                  scoreA,
+                  scoreB,
+                  winnerCollegeId,
+                  loserCollegeId,
+                  status: 'completed' as GameStatus,
+                  completedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                }
+              : g
+          );
+          logDetail = `[${targetSub.name}] Match completed (${winnerCollegeId} ${scoreA}-${scoreB} ${loserCollegeId}).`;
+        }
+
+        const updatedSubs = subCategories.map(s => (s.id === subCategoryId ? updatedSub : s));
+        const accumulatedScores = recomputeEventAccumulatedScores(
+          updatedSubs,
+          event.participatingColleges
+        );
+
+        await saveEvent({
+          ...event,
+          isMultiCategoryEvent: true,
+          subCategories: updatedSubs,
+          accumulatedScores,
+          status:
+            event.status === 'completed' || event.status === 'paused' ? event.status : 'ongoing',
+          updatedAt: new Date().toISOString(),
+        });
+
+        await addDatabaseLog(
+          'Entered Sub-Event Match Result',
+          logDetail,
+          adminUser,
+          `${event.eventName} — ${targetSub.name}`,
+          eventId,
+          viewedPalakasanId
+        );
+
+        return { success: true };
+      }
+
+      // -------------------------------------------------------------
+      // BRANCH B: TOP-LEVEL EVENT BRACKET RESULT
+      // -------------------------------------------------------------
       const games = event.games || [];
       const targetGame = games.find(g => g.id === gameId);
       if (!targetGame) return { success: false, error: 'Game match not found in event.' };
@@ -1375,7 +1711,8 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     winnerCollegeId: CollegeId,
     loserCollegeId: CollegeId,
     reason?: string,
-    adminUser = adminUserDisplay
+    adminUser = adminUserDisplay,
+    subCategoryId?: string
   ): Promise<{ success: boolean; error?: string }> => {
     const res = await recordGameResult(
       eventId,
@@ -1384,12 +1721,13 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       scoreB,
       winnerCollegeId,
       loserCollegeId,
-      adminUser
+      adminUser,
+      subCategoryId
     );
     if (res.success) {
       await addDatabaseLog(
         'Corrected Game Result',
-        `Modified score for match ${gameId}. Reason: ${reason || 'Score entry correction'}. Downstream matches updated.`,
+        `Modified score for match ${gameId}${subCategoryId ? ` (sub-event ${subCategoryId})` : ''}. Reason: ${reason || 'Score entry correction'}. Downstream matches updated.`,
         adminUser,
         undefined,
         eventId,
@@ -1406,10 +1744,38 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     startTime: string,
     endTime: string,
     venue?: string,
-    adminUser = adminUserDisplay
+    adminUser = adminUserDisplay,
+    subCategoryId?: string
   ): Promise<{ success: boolean; error?: string }> => {
     const event = events.find(e => e.id === eventId);
     if (!event) return { success: false, error: 'Event not found.' };
+
+    if (subCategoryId) {
+      const subCategories = event.subCategories || [];
+      const targetSub = subCategories.find(s => s.id === subCategoryId);
+      if (!targetSub) return { success: false, error: 'Sub-event not found.' };
+      const games = targetSub.games || [];
+      const game = games.find(g => g.id === gameId);
+      if (!game) return { success: false, error: 'Game not found.' };
+
+      const updatedGames = games.map(g =>
+        g.id === gameId ? { ...g, date, startTime, endTime, venue: venue || g.venue } : g
+      );
+      const updatedSubs = subCategories.map(s =>
+        s.id === subCategoryId ? { ...s, games: updatedGames } : s
+      );
+      await saveEvent({ ...event, subCategories: updatedSubs, updatedAt: new Date().toISOString() });
+      await addDatabaseLog(
+        'Rescheduled Sub-Event Match',
+        `Rescheduled [${targetSub.name}] Game #${game.gameNumber} to ${date} ${startTime}-${endTime}.`,
+        adminUser,
+        `${event.eventName} — ${targetSub.name}`,
+        eventId,
+        viewedPalakasanId
+      );
+      return { success: true };
+    }
+
     const games = event.games || [];
     const game = games.find(g => g.id === gameId);
     if (!game) return { success: false, error: 'Game not found.' };
@@ -1465,7 +1831,7 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         event.venue,
         event.startTime
       );
-    } else if (format === 'single-elimination') {
+    } else if (format === 'single-elimination' || format === 'head-to-head') {
       newGames = generateSingleEliminationGames(
         eventId,
         event.participatingColleges,
@@ -1475,21 +1841,541 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       );
     }
 
-    const updated = {
+    const updated: PalakasanEvent = {
       ...event,
       competitionFormat: format,
       games: newGames,
-      status: 'upcoming' as EventStatus,
-      resultStatus: 'pending' as ResultStatus,
+      status: 'upcoming',
+      resultStatus: 'pending',
       championCollegeId: undefined,
+      championName: undefined,
       eliminatedColleges: undefined,
       roundRobinStats: undefined,
     };
 
-    await saveEvent(updated);
+    await replaceEvent(updated);
     await addDatabaseLog(
       'Generated Competition Bracket',
       `Generated ${newGames.length} matches for "${event.eventName}" under ${format} format.`,
+      adminUser,
+      event.eventName,
+      eventId,
+      viewedPalakasanId
+    );
+
+    return { success: true };
+  };
+
+  const updateGameParticipants = async (
+    eventId: string,
+    gameId: string,
+    collegeA?: CollegeId | '',
+    collegeB?: CollegeId | '',
+    adminUser = adminUserDisplay,
+    subCategoryId?: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    const event = events.find(e => e.id === eventId);
+    if (!event) return { success: false, error: 'Event not found.' };
+
+    const cleanA = collegeA ? collegeA : undefined;
+    const cleanB = collegeB ? collegeB : undefined;
+
+    if (cleanA && cleanB && cleanA === cleanB) {
+      return { success: false, error: 'Team A and Team B cannot be the same college.' };
+    }
+
+    const mapUpdatedGames = (gamesList: GameMatch[]): GameMatch[] =>
+      gamesList.map(g => {
+        if (g.id !== gameId) return g;
+        const prevA = g.collegeA || g.participantA?.collegeId;
+        const prevB = g.collegeB || g.participantB?.collegeId;
+        const fallbackDescA =
+          g.sourceDescriptionA && g.sourceDescriptionA !== prevA
+            ? g.sourceDescriptionA
+            : g.participantA?.placeholderText && g.participantA.placeholderText !== prevA
+            ? g.participantA.placeholderText
+            : 'TBD';
+        const fallbackDescB =
+          g.sourceDescriptionB && g.sourceDescriptionB !== prevB
+            ? g.sourceDescriptionB
+            : g.participantB?.placeholderText && g.participantB.placeholderText !== prevB
+            ? g.participantB.placeholderText
+            : 'TBD';
+
+        return {
+          ...g,
+          collegeA: cleanA,
+          collegeB: cleanB,
+          sourceDescriptionA: cleanA || fallbackDescA,
+          sourceDescriptionB: cleanB || fallbackDescB,
+          participantA: {
+            ...g.participantA,
+            collegeId: cleanA,
+            placeholderText: cleanA || fallbackDescA,
+          },
+          participantB: {
+            ...g.participantB,
+            collegeId: cleanB,
+            placeholderText: cleanB || fallbackDescB,
+          },
+          isUnlocked: Boolean(cleanA && cleanB),
+        };
+      });
+
+    // Ensure any newly chosen college is included in event.participatingColleges
+    const mergedColleges = Array.from(
+      new Set([
+        ...(event.participatingColleges || []),
+        ...(cleanA ? [cleanA] : []),
+        ...(cleanB ? [cleanB] : []),
+      ])
+    ) as CollegeId[];
+
+    if (subCategoryId) {
+      const subCategories = event.subCategories || [];
+      const targetSub = subCategories.find(s => s.id === subCategoryId);
+      if (!targetSub) return { success: false, error: 'Sub-event not found.' };
+      const games = targetSub.games || [];
+      const target = games.find(g => g.id === gameId);
+      if (!target) return { success: false, error: 'Game not found.' };
+
+      const updatedSubs = subCategories.map(s =>
+        s.id === subCategoryId ? { ...s, games: mapUpdatedGames(s.games || []) } : s
+      );
+
+      await saveEvent({
+        ...event,
+        participatingColleges: mergedColleges,
+        subCategories: updatedSubs,
+        updatedAt: new Date().toISOString(),
+      });
+
+      await addDatabaseLog(
+        'Updated Sub-Event Match Bracket',
+        `Updated [${targetSub.name}] Game #${target.gameNumber} matchup to ${cleanA || 'TBD'} vs ${cleanB || 'TBD'}.`,
+        adminUser,
+        `${event.eventName} — ${targetSub.name}`,
+        eventId,
+        viewedPalakasanId
+      );
+
+      return { success: true };
+    }
+
+    const games = event.games || [];
+    const target = games.find(g => g.id === gameId);
+    if (!target) return { success: false, error: 'Game not found.' };
+
+    const updatedGames = mapUpdatedGames(games);
+
+    await saveEvent({
+      ...event,
+      participatingColleges: mergedColleges,
+      games: updatedGames,
+      updatedAt: new Date().toISOString(),
+    });
+
+    await addDatabaseLog(
+      'Updated Match Bracket',
+      `Updated Game #${target.gameNumber} (${target.roundName}) matchup to ${cleanA || 'TBD'} vs ${cleanB || 'TBD'}.`,
+      adminUser,
+      event.eventName,
+      eventId,
+      viewedPalakasanId
+    );
+
+    return { success: true };
+  };
+
+  const updateEventBracketPairings = async (
+    eventId: string,
+    updatedGames: GameMatch[],
+    participatingColleges?: CollegeId[],
+    adminUser = adminUserDisplay,
+    subCategoryId?: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    const event = events.find(e => e.id === eventId);
+    if (!event) return { success: false, error: 'Event not found.' };
+
+    const assignedColleges = new Set<CollegeId>(participatingColleges || event.participatingColleges || []);
+    updatedGames.forEach(g => {
+      const cA = g.collegeA || g.participantA?.collegeId;
+      const cB = g.collegeB || g.participantB?.collegeId;
+      if (cA) assignedColleges.add(cA);
+      if (cB) assignedColleges.add(cB);
+    });
+
+    if (subCategoryId) {
+      const subCategories = event.subCategories || [];
+      const targetSub = subCategories.find(s => s.id === subCategoryId);
+      if (!targetSub) return { success: false, error: 'Sub-event not found.' };
+
+      const updatedSubs = subCategories.map(s =>
+        s.id === subCategoryId ? { ...s, games: updatedGames } : s
+      );
+
+      await saveEvent({
+        ...event,
+        participatingColleges: Array.from(assignedColleges),
+        subCategories: updatedSubs,
+        updatedAt: new Date().toISOString(),
+      });
+
+      await addDatabaseLog(
+        'Edited Sub-Event Bracket',
+        `Updated bracket pairings for "${event.eventName} — ${targetSub.name}".`,
+        adminUser,
+        `${event.eventName} — ${targetSub.name}`,
+        eventId,
+        viewedPalakasanId
+      );
+
+      return { success: true };
+    }
+
+    await saveEvent({
+      ...event,
+      participatingColleges: Array.from(assignedColleges),
+      games: updatedGames,
+      updatedAt: new Date().toISOString(),
+    });
+
+    await addDatabaseLog(
+      'Edited Tournament Bracket',
+      `Updated bracket pairings for "${event.eventName}".`,
+      adminUser,
+      event.eventName,
+      eventId,
+      viewedPalakasanId
+    );
+
+    return { success: true };
+  };
+
+  const initializeEventSubCategories = async (
+    eventId: string,
+    items: Array<{ name: string; competitionFormat: CompetitionFormat }>,
+    adminUser = adminUserDisplay
+  ): Promise<{ success: boolean; error?: string }> => {
+    const event = events.find(e => e.id === eventId);
+    if (!event) return { success: false, error: 'Event not found.' };
+    if (!items || items.length === 0) {
+      return { success: false, error: 'Please provide at least one sub-event.' };
+    }
+
+    const existingSubs = event.subCategories || [];
+    const built: SubCategoryDiscipline[] = items
+      .filter(it => it.name.trim())
+      .map((item, idx) => {
+        const subId = `sub-${Date.now()}-${idx}`;
+        const existingMatch = existingSubs.find(
+          s => s.name.toLowerCase() === item.name.trim().toLowerCase()
+        );
+        if (existingMatch && existingMatch.games && existingMatch.games.length > 0) {
+          return existingMatch;
+        }
+        return buildSubCategoryWithMatches(
+          eventId,
+          subId,
+          item.name.trim(),
+          item.competitionFormat || 'double-elimination',
+          event.participatingColleges,
+          event.date,
+          event.venue,
+          event.startTime
+        );
+      });
+
+    await saveEvent({
+      ...event,
+      isMultiCategoryEvent: true,
+      subCategories: built,
+      accumulatedScores: recomputeEventAccumulatedScores(built, event.participatingColleges),
+      updatedAt: new Date().toISOString(),
+    });
+
+    await addDatabaseLog(
+      'Initialized Sub-Event Brackets',
+      `Created ${built.length} sub-event brackets for "${event.eventName}".`,
+      adminUser,
+      event.eventName,
+      eventId,
+      viewedPalakasanId
+    );
+
+    return { success: true };
+  };
+
+  const addEventSubCategory = async (
+    eventId: string,
+    name: string,
+    format: CompetitionFormat = 'double-elimination',
+    adminUser = adminUserDisplay
+  ): Promise<{ success: boolean; error?: string }> => {
+    const event = events.find(e => e.id === eventId);
+    if (!event) return { success: false, error: 'Event not found.' };
+    const cleanName = name.trim();
+    if (!cleanName) return { success: false, error: 'Sub-event name is required.' };
+
+    const existingSubs = event.subCategories || [];
+    if (existingSubs.some(s => s.name.toLowerCase() === cleanName.toLowerCase())) {
+      return { success: false, error: `Sub-event "${cleanName}" already exists.` };
+    }
+
+    const subId = `sub-${Date.now()}`;
+    const newSub = buildSubCategoryWithMatches(
+      eventId,
+      subId,
+      cleanName,
+      format,
+      event.participatingColleges,
+      event.date,
+      event.venue,
+      event.startTime
+    );
+
+    const updatedSubs = [...existingSubs, newSub];
+    await saveEvent({
+      ...event,
+      isMultiCategoryEvent: true,
+      subCategories: updatedSubs,
+      updatedAt: new Date().toISOString(),
+    });
+
+    await addDatabaseLog(
+      'Added Sub-Event Bracket',
+      `Added "${cleanName}" (${format}) under "${event.eventName}".`,
+      adminUser,
+      `${event.eventName} — ${cleanName}`,
+      eventId,
+      viewedPalakasanId
+    );
+
+    return { success: true };
+  };
+
+  const removeEventSubCategory = async (
+    eventId: string,
+    subCategoryId: string,
+    adminUser = adminUserDisplay
+  ): Promise<{ success: boolean; error?: string }> => {
+    const event = events.find(e => e.id === eventId);
+    if (!event) return { success: false, error: 'Event not found.' };
+
+    const existingSubs = event.subCategories || [];
+    const removed = existingSubs.find(s => s.id === subCategoryId);
+    const updatedSubs = existingSubs.filter(s => s.id !== subCategoryId);
+
+    if (updatedSubs.length === 0) {
+      await replaceEvent({
+        ...event,
+        isMultiCategoryEvent: false,
+        subCategories: undefined,
+        accumulatedScores: undefined,
+        updatedAt: new Date().toISOString(),
+      });
+    } else {
+      const accumulatedScores = recomputeEventAccumulatedScores(
+        updatedSubs,
+        event.participatingColleges
+      );
+      await replaceEvent({
+        ...event,
+        subCategories: updatedSubs,
+        accumulatedScores,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    await addDatabaseLog(
+      'Removed Sub-Event Bracket',
+      `Removed sub-event "${removed?.name || subCategoryId}" from "${event.eventName}".`,
+      adminUser,
+      event.eventName,
+      eventId,
+      viewedPalakasanId
+    );
+
+    return { success: true };
+  };
+
+  const generateSubCategoryMatches = async (
+    eventId: string,
+    subCategoryId: string,
+    format: CompetitionFormat,
+    adminUser = adminUserDisplay
+  ): Promise<{ success: boolean; error?: string }> => {
+    const event = events.find(e => e.id === eventId);
+    if (!event) return { success: false, error: 'Event not found.' };
+
+    const existingSubs = event.subCategories || [];
+    const targetSub = existingSubs.find(s => s.id === subCategoryId);
+    if (!targetSub) return { success: false, error: 'Sub-event not found.' };
+
+    const newGames = generateMatchesForSubCategory(
+      eventId,
+      subCategoryId,
+      format,
+      event.participatingColleges,
+      event.date,
+      event.venue,
+      event.startTime
+    );
+
+    const updatedSubs: SubCategoryDiscipline[] = existingSubs.map(s => {
+      if (s.id !== subCategoryId) return s;
+      return {
+        id: s.id,
+        name: s.name,
+        competitionFormat: format,
+        games: newGames,
+        results: [],
+      };
+    });
+
+    const accumulatedScores = recomputeEventAccumulatedScores(
+      updatedSubs,
+      event.participatingColleges
+    );
+
+    await saveEvent({
+      ...event,
+      subCategories: updatedSubs,
+      accumulatedScores,
+      updatedAt: new Date().toISOString(),
+    });
+
+    await addDatabaseLog(
+      'Generated Sub-Event Bracket',
+      `Regenerated ${newGames.length} matches for "${event.eventName} — ${targetSub.name}" (${format}).`,
+      adminUser,
+      `${event.eventName} — ${targetSub.name}`,
+      eventId,
+      viewedPalakasanId
+    );
+
+    return { success: true };
+  };
+
+  const deleteEventBracket = async (
+    eventId: string,
+    adminUser = adminUserDisplay
+  ): Promise<{ success: boolean; error?: string }> => {
+    const event = events.find(e => e.id === eventId);
+    if (!event) return { success: false, error: 'Event not found.' };
+
+    await replaceEvent({
+      ...event,
+      games: undefined,
+      competitionFormat: undefined,
+      subCategories: undefined,
+      accumulatedScores: undefined,
+      eliminatedColleges: undefined,
+      roundRobinStats: undefined,
+      championCollegeId: undefined,
+      championName: undefined,
+      isMultiCategoryEvent: false,
+      status: event.status === 'cancelled' || event.status === 'postponed' ? event.status : 'upcoming',
+      resultStatus: event.resultStatus === 'official' ? 'official' : 'pending',
+      updatedAt: new Date().toISOString(),
+    });
+
+    await addDatabaseLog(
+      'Deleted Generated Bracket',
+      `Deleted generated bracket and match pairings for "${event.eventName}".`,
+      adminUser,
+      event.eventName,
+      eventId,
+      viewedPalakasanId
+    );
+
+    return { success: true };
+  };
+
+  const disableEventSubCategories = async (
+    eventId: string,
+    format?: CompetitionFormat,
+    adminUser = adminUserDisplay
+  ): Promise<{ success: boolean; error?: string }> => {
+    const event = events.find(e => e.id === eventId);
+    if (!event) return { success: false, error: 'Event not found.' };
+
+    const targetFormat: CompetitionFormat =
+      format ||
+      (event.competitionFormat === 'double-elimination' ||
+      event.competitionFormat === 'single-elimination' ||
+      event.competitionFormat === 'round-robin' ||
+      event.competitionFormat === 'head-to-head'
+        ? event.competitionFormat
+        : 'double-elimination');
+
+    let nextGames = event.games;
+    if (!nextGames || nextGames.length === 0) {
+      if (targetFormat === 'double-elimination') {
+        nextGames = generateDoubleEliminationGames(
+          eventId,
+          event.participatingColleges,
+          event.date,
+          event.venue,
+          event.startTime
+        );
+      } else if (targetFormat === 'round-robin') {
+        nextGames = generateRoundRobinGames(
+          eventId,
+          event.participatingColleges,
+          event.date,
+          event.venue,
+          event.startTime
+        );
+      } else if (targetFormat === 'single-elimination' || targetFormat === 'head-to-head') {
+        nextGames = generateSingleEliminationGames(
+          eventId,
+          event.participatingColleges,
+          event.date,
+          event.venue,
+          event.startTime
+        );
+      }
+    }
+
+    await replaceEvent({
+      ...event,
+      isMultiCategoryEvent: false,
+      subCategories: undefined,
+      accumulatedScores: undefined,
+      competitionFormat: targetFormat,
+      games: nextGames,
+      updatedAt: new Date().toISOString(),
+    });
+
+    await addDatabaseLog(
+      'Switched to Single Bracket Mode',
+      `Disabled sub-event divisions for "${event.eventName}" (using ${targetFormat} single bracket).`,
+      adminUser,
+      event.eventName,
+      eventId,
+      viewedPalakasanId
+    );
+
+    return { success: true };
+  };
+
+  const enableEventSubCategories = async (
+    eventId: string,
+    adminUser = adminUserDisplay
+  ): Promise<{ success: boolean; error?: string }> => {
+    const event = events.find(e => e.id === eventId);
+    if (!event) return { success: false, error: 'Event not found.' };
+
+    await saveEvent({
+      ...event,
+      isMultiCategoryEvent: true,
+      updatedAt: new Date().toISOString(),
+    });
+
+    await addDatabaseLog(
+      'Enabled Sub-Event Divisions',
+      `Enabled optional sub-event divisions setup for "${event.eventName}".`,
       adminUser,
       event.eventName,
       eventId,
@@ -1928,6 +2814,8 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         changeVenue,
         changeParticipants,
         startOngoingEvent,
+        pauseEvent,
+        resumeEvent,
         markEventCompleted,
         cancelEvent,
         postponeEvent,
@@ -1935,6 +2823,15 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         editGameResult,
         rescheduleGame,
         generateEventMatches,
+        updateGameParticipants,
+        updateEventBracketPairings,
+        initializeEventSubCategories,
+        addEventSubCategory,
+        removeEventSubCategory,
+        generateSubCategoryMatches,
+        deleteEventBracket,
+        disableEventSubCategories,
+        enableEventSubCategories,
         saveDraftResults,
         declareOfficialResults,
         editOfficialResult,

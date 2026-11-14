@@ -10,6 +10,7 @@ import {
   RotateCcw,
   User,
   Phone,
+  Pause,
 } from 'lucide-react';
 import { usePalakasan } from '../context/PalakasanContext';
 import { CategoryId, CollegeId, EventStatus } from '../types';
@@ -173,6 +174,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
               <option value="all">All Statuses</option>
               <option value="upcoming">Upcoming</option>
               <option value="ongoing">Ongoing (Live)</option>
+              <option value="paused">Paused (Resumes Later)</option>
               <option value="completed">Completed</option>
             </select>
           </div>
@@ -251,6 +253,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
           {filteredEvents.map(event => {
             const meta = getCategoryMeta(event.category);
             const isLive = event.status === 'ongoing';
+            const isPaused = event.status === 'paused';
             const isCompleted = event.status === 'completed';
 
             return (
@@ -260,6 +263,8 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                 className={`group cursor-pointer rounded-xl border p-4 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-3 ${
                   isLive
                     ? 'bg-emerald-50/40 border-emerald-200 shadow-xs'
+                    : isPaused
+                    ? 'bg-amber-50/40 border-amber-200 shadow-xs'
                     : isCompleted
                     ? 'bg-white border-slate-200 hover:border-slate-300'
                     : 'bg-white border-slate-200 hover:border-blue-300 shadow-xs'
@@ -276,7 +281,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                   </div>
 
                   <div className="space-y-0.5">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span
                         className="inline-flex items-center gap-1 px-2 py-0.2 rounded text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200"
                       >
@@ -290,15 +295,28 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                         </span>
                       )}
 
+                      {isPaused && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.2 rounded border border-amber-300">
+                          <Pause className="w-3 h-3 text-amber-700" />
+                          <span>
+                            Paused{event.resumeDate ? ` • Resumes ${event.resumeDate}` : ''}
+                          </span>
+                        </span>
+                      )}
+
                       {isCompleted && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-600 bg-slate-100 px-2 py-0.2 rounded border border-slate-200">
                           <CheckCircle2 className="w-3 h-3 text-slate-500" /> Done
                         </span>
                       )}
 
-                      {!isLive && !isCompleted && (
+                      {!isLive && !isPaused && !isCompleted && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.2 rounded border border-blue-200">
-                          Upcoming
+                          {event.status === 'cancelled'
+                            ? 'Cancelled'
+                            : event.status === 'postponed'
+                            ? 'Postponed'
+                            : 'Upcoming'}
                         </span>
                       )}
                     </div>

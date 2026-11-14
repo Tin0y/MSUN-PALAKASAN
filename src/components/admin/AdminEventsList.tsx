@@ -20,6 +20,9 @@ import {
   Star,
   User,
   Phone,
+  Pause,
+  Play,
+  X,
 } from 'lucide-react';
 import { usePalakasan } from '../../context/PalakasanContext';
 import { CategoryId, EventStatus, PalakasanEvent } from '../../types';
@@ -34,7 +37,7 @@ interface AdminEventsListProps {
   onOpenEnterResult: (event: PalakasanEvent) => void;
 }
 
-type StatusFilter = 'all' | 'upcoming' | 'ongoing' | 'completed' | 'cancelled_postponed';
+type StatusFilter = 'all' | 'upcoming' | 'ongoing' | 'paused' | 'completed' | 'cancelled_postponed';
 
 export const AdminEventsList: React.FC<AdminEventsListProps> = ({
   onOpenCreateEvent,
@@ -42,13 +45,24 @@ export const AdminEventsList: React.FC<AdminEventsListProps> = ({
   onOpenEventDetail,
   onOpenEnterResult,
 }) => {
-  const { events, currentPalakasan, deleteEvent, startOngoingEvent, markEventCompleted } = usePalakasan();
+  const {
+    events,
+    currentPalakasan,
+    deleteEvent,
+    startOngoingEvent,
+    pauseEvent,
+    resumeEvent,
+    markEventCompleted,
+  } = usePalakasan();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortBy, setSortBy] = useState<'date_asc' | 'date_desc' | 'name'>('date_asc');
   const [eventToDelete, setEventToDelete] = useState<PalakasanEvent | null>(null);
+  const [eventToPause, setEventToPause] = useState<PalakasanEvent | null>(null);
+  const [pauseReason, setPauseReason] = useState('');
+  const [pauseResumeDate, setPauseResumeDate] = useState('');
 
   // Filter logic
   const filteredEvents = events.filter(event => {
@@ -66,6 +80,7 @@ export const AdminEventsList: React.FC<AdminEventsListProps> = ({
     let matchStatus = true;
     if (statusFilter === 'upcoming') matchStatus = event.status === 'upcoming';
     else if (statusFilter === 'ongoing') matchStatus = event.status === 'ongoing';
+    else if (statusFilter === 'paused') matchStatus = event.status === 'paused';
     else if (statusFilter === 'completed') matchStatus = event.status === 'completed';
     else if (statusFilter === 'cancelled_postponed') {
       matchStatus = event.status === 'cancelled' || event.status === 'postponed';
@@ -125,6 +140,7 @@ export const AdminEventsList: React.FC<AdminEventsListProps> = ({
               { id: 'all', label: 'All Events' },
               { id: 'upcoming', label: 'Upcoming' },
               { id: 'ongoing', label: 'Ongoing (Live)' },
+              { id: 'paused', label: 'Paused' },
               { id: 'completed', label: 'Completed' },
               { id: 'cancelled_postponed', label: 'Cancelled / Postponed' },
             ].map(tab => (
@@ -250,7 +266,9 @@ export const AdminEventsList: React.FC<AdminEventsListProps> = ({
                       <span
                         className={`text-[10px] font-bold px-2 py-0.2 rounded uppercase ${
                           event.status === 'ongoing'
-                            ? 'bg-blue-600 text-white animate-pulse'
+                            ? 'bg-blue-600 text-white'
+                            : event.status === 'paused'
+                            ? 'bg-amber-100 text-amber-800 border border-amber-300'
                             : event.status === 'completed'
                             ? 'bg-emerald-100 text-emerald-800'
                             : event.status === 'cancelled'
@@ -262,6 +280,11 @@ export const AdminEventsList: React.FC<AdminEventsListProps> = ({
                       >
                         {event.status}
                       </span>
+                      {event.status === 'paused' && event.resumeDate && (
+                        <span className="text-[10px] font-semibold px-2 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                          Resumes: {event.resumeDate}
+                        </span>
+                      )}
                       {isOfficial && (
                         <span className="text-[10px] font-bold px-2 py-0.2 rounded bg-blue-100 text-blue-900 border border-blue-200">
                           Official Results Certified
@@ -351,15 +374,56 @@ export const AdminEventsList: React.FC<AdminEventsListProps> = ({
                     )}
 
                     {event.status === 'ongoing' && (
-                      <button
-                        type="button"
-                        onClick={() => markEventCompleted(event.id, true)}
-                        className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs rounded-xl transition-colors"
-                        title="Mark event finished"
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Finish</span>
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEventToPause(event);
+                            setPauseReason(
+                              event.pausedReason ||
+                                'Games 1–3 completed; remaining matches scheduled for another day'
+                            );
+                            setPauseResumeDate(event.resumeDate || '');
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 font-bold text-xs rounded-xl transition-colors"
+                          title="Pause event and resume on another day"
+                        >
+                          <Pause className="w-3.5 h-3.5" />
+                          <span>Pause</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => markEventCompleted(event.id, true)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs rounded-xl transition-colors"
+                          title="Mark event finished"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Finish</span>
+                        </button>
+                      </>
+                    )}
+
+                    {event.status === 'paused' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => resumeEvent(event.id)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-2xs transition-colors"
+                          title="Resume event back to Ongoing (Live)"
+                        >
+                          <Play className="w-3.5 h-3.5" />
+                          <span>Resume</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => markEventCompleted(event.id, true)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs rounded-xl transition-colors"
+                          title="Mark event finished"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Finish</span>
+                        </button>
+                      </>
                     )}
 
                     {/* Edit Event Button */}
@@ -396,6 +460,83 @@ export const AdminEventsList: React.FC<AdminEventsListProps> = ({
         isOpen={!!eventToDelete}
         onClose={() => setEventToDelete(null)}
       />
+
+      {/* Quick Pause Event Modal */}
+      {eventToPause && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs"
+          onClick={() => setEventToPause(null)}
+        >
+          <div
+            className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full overflow-hidden text-xs"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-slate-100 bg-amber-50/70 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Pause className="w-4 h-4 text-amber-700" />
+                <h3 className="text-sm font-extrabold text-slate-900">Pause Tournament Event</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEventToPause(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form
+              onSubmit={async e => {
+                e.preventDefault();
+                await pauseEvent(eventToPause.id, pauseReason, pauseResumeDate);
+                setEventToPause(null);
+              }}
+              className="p-5 space-y-4"
+            >
+              <p className="text-slate-600 leading-relaxed">
+                Pause <strong className="text-slate-900">{eventToPause.eventName}</strong> while keeping all recorded match scores intact until play resumes on another day.
+              </p>
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Pause Note / Progress</label>
+                <input
+                  type="text"
+                  value={pauseReason}
+                  onChange={e => setPauseReason(e.target.value)}
+                  placeholder="e.g. Games 1–3 completed; Game 4 to Finals on Day 2"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Resume Date & Time (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={pauseResumeDate}
+                  onChange={e => setPauseResumeDate(e.target.value)}
+                  placeholder="e.g. Tomorrow, 09:00 AM"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900"
+                />
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEventToPause(null)}
+                  className="px-3.5 py-1.5 rounded-lg font-semibold text-slate-600 hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold shadow-2xs"
+                >
+                  <Pause className="w-3.5 h-3.5" />
+                  <span>Pause Event</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

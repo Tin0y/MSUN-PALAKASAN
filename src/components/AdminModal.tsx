@@ -697,6 +697,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                           >
                             <option value="upcoming">Upcoming</option>
                             <option value="ongoing">Ongoing / Live Now</option>
+                            <option value="paused">Paused (Resumes Another Day)</option>
                             <option value="completed">Completed</option>
                           </select>
                         </div>
