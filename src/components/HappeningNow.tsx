@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Clock, MapPin, Users, Calendar, ArrowRight, Radio, User, Phone } from 'lucide-react';
 import { usePalakasan } from '../context/PalakasanContext';
 import { getCategoryMeta, getCollegeBadgeStyle } from '../utils/collegeTheme';
@@ -14,6 +14,13 @@ export const HappeningNow: React.FC<HappeningNowProps> = ({
   onOpenCollegeModal,
 }) => {
   const { getHappeningNowEvent, getNextUpcomingEvent } = usePalakasan();
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const liveEvent = getHappeningNowEvent();
   const nextEvent = getNextUpcomingEvent();
 
@@ -186,7 +193,9 @@ export const HappeningNow: React.FC<HappeningNowProps> = ({
                         {nextEvent.category}
                       </span>
                       <span className="text-slate-300">•</span>
-                      <span className="text-xs text-slate-600 font-medium">{nextEvent.startTime}</span>
+                      <span className="text-xs text-slate-600 font-medium">
+                        {nextEvent.date} • {nextEvent.startTime} – {nextEvent.endTime}
+                      </span>
                     </div>
                     <div className="font-bold text-slate-900 text-sm">
                       {nextEvent.eventName}

@@ -920,17 +920,64 @@ export const PalakasanProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
   };
 
+  const parseEventDateTime = (dateStr: string, timeStr: string): Date | null => {
+    if (!dateStr || !timeStr) return null;
+    const dateParts = dateStr.trim().split('-').map(Number);
+    if (dateParts.length !== 3 || dateParts.some(isNaN)) return null;
+    const [year, month, day] = dateParts;
+
+    const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i);
+    if (!match) return null;
+
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const period = match[3]?.toUpperCase();
+
+    if (period === 'PM' && hours < 12) hours += 12;
+    if (period === 'AM' && hours === 12) hours = 0;
+
+    return new Date(year, month - 1, day, hours, minutes, 0, 0);
+  };
+
+  const isEventScheduledNow = (ev: PalakasanEvent, now: Date): boolean => {
+    if (
+      ev.status === 'completed' ||
+      ev.status === 'cancelled' ||
+      ev.status === 'postponed' ||
+      ev.status === 'paused'
+    ) {
+      return false;
+    }
+    const start = parseEventDateTime(ev.date, ev.startTime);
+    const end = parseEventDateTime(ev.date, ev.endTime);
+    if (!start || !end) return false;
+    const nowMs = now.getTime();
+    return nowMs >= start.getTime() && nowMs <= end.getTime();
+  };
+
   const getHappeningNowEvent = (): PalakasanEvent | null => {
-    const ongoing = events.find(e => e.status === 'ongoing');
-    if (ongoing) return ongoing;
-    // Or return next upcoming
-    return events.find(e => e.status === 'upcoming') || null;
+    const now = new Date();
+    const activeCandidates = events.filter(e => isEventScheduledNow(e, now));
+    if (activeCandidates.length === 0) return null;
+    return activeCandidates.find(e => e.status === 'ongoing') || activeCandidates[0];
   };
 
   const getNextUpcomingEvent = (): PalakasanEvent | null => {
-    const upcoming = events.filter(e => e.status === 'upcoming');
+    const now = new Date();
+    const nowMs = now.getTime();
+    const upcoming = events.filter(e => {
+      if (e.status !== 'upcoming' && e.status !== 'ongoing') return false;
+      if (isEventScheduledNow(e, now)) return false;
+      const start = parseEventDateTime(e.date, e.startTime);
+      if (!start) return false;
+      return start.getTime() > nowMs;
+    });
     if (upcoming.length === 0) return null;
-    return upcoming.sort((a, b) => a.date.localeCompare(b.date))[0];
+    return upcoming.sort((a, b) => {
+      const aStart = parseEventDateTime(a.date, a.startTime)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const bStart = parseEventDateTime(b.date, b.startTime)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      return aStart - bStart;
+    })[0];
   };
 
   const getRecentResults = (limit = 4): PalakasanEvent[] => {
