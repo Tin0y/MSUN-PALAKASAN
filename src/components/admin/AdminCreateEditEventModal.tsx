@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Calendar, Clock, MapPin, Users, AlertCircle, CheckCircle2, ShieldAlert, Star, User, Phone, Layers } from 'lucide-react';
 import { usePalakasan } from '../../context/PalakasanContext';
 import { CategoryId, CollegeId, CompetitionFormat, EventStatus, EventType, PalakasanEvent, PointTier } from '../../types';
@@ -26,7 +26,12 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
   onClose,
   eventToEdit,
 }) => {
-  const { addEvent, updateEvent, currentAccount, currentPalakasan } = usePalakasan();
+  const { addEvent, updateEvent, currentAccount, currentPalakasan, venues } = usePalakasan();
+
+  const availableVenues = useMemo(
+    () => (venues.length > 0 ? venues.map(v => v.name) : VENUES),
+    [venues]
+  );
 
   const [eventName, setEventName] = useState('');
   const [category, setCategory] = useState<CategoryId>(() => currentAccount?.category || 'sports');
@@ -36,7 +41,7 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
   const [date, setDate] = useState('2026-09-16');
   const [startTime, setStartTime] = useState('09:00 AM');
   const [endTime, setEndTime] = useState('10:30 AM');
-  const [venue, setVenue] = useState(VENUES[0]);
+  const [venue, setVenue] = useState(availableVenues[0] || VENUES[0]);
   const [customVenue, setCustomVenue] = useState('');
   const [isCustomVenue, setIsCustomVenue] = useState(false);
   const [personInCharge, setPersonInCharge] = useState('');
@@ -70,7 +75,7 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
       setDate(eventToEdit.date);
       setStartTime(eventToEdit.startTime);
       setEndTime(eventToEdit.endTime);
-      if (VENUES.includes(eventToEdit.venue)) {
+      if (availableVenues.includes(eventToEdit.venue)) {
         setVenue(eventToEdit.venue);
         setIsCustomVenue(false);
       } else {
@@ -107,7 +112,7 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
       setDate('2026-09-16');
       setStartTime('09:00 AM');
       setEndTime('10:30 AM');
-      setVenue(VENUES[0]);
+      setVenue(availableVenues[0] || VENUES[0]);
       setIsCustomVenue(false);
       setCustomVenue('');
       setPersonInCharge('');
@@ -543,7 +548,7 @@ export const AdminCreateEditEventModal: React.FC<AdminCreateEditEventModalProps>
                     onChange={e => setVenue(e.target.value)}
                     className="flex-1 px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 text-xs disabled:opacity-50"
                   >
-                    {VENUES.map(v => (
+                    {availableVenues.map(v => (
                       <option key={v} value={v}>
                         {v}
                       </option>

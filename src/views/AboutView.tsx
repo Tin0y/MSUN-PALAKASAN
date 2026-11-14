@@ -14,7 +14,8 @@ interface AboutViewProps {
 }
 
 export const AboutView: React.FC<AboutViewProps> = ({ onOpenCollegeModal }) => {
-  const { currentPalakasan } = usePalakasan();
+  const { currentPalakasan, venues } = usePalakasan();
+  const displayVenues = venues.length > 0 ? venues.map(v => v.name) : VENUES;
   const normalized = getNormalizedScoringRules(currentPalakasan?.scoringRules);
   const { sports, cultural, literary, special } = normalized.byCategory;
 
@@ -268,7 +269,7 @@ export const AboutView: React.FC<AboutViewProps> = ({ onOpenCollegeModal }) => {
           <span>Official MSUN Campus Venues</span>
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {VENUES.map(venue => (
+          {displayVenues.map(venue => (
             <div
               key={venue}
               className="p-3 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 flex items-center gap-2 shadow-xs"

@@ -49,7 +49,13 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     deleteEvent,
     recordEventResults,
     resetToDefaultData,
+    venues,
   } = usePalakasan();
+
+  const availableVenues = React.useMemo(() => {
+    const base = venues.length > 0 ? venues.map(v => v.name) : VENUES;
+    return base;
+  }, [venues]);
 
   const [activeTab, setActiveTab] = useState<'results' | 'events' | 'system'>('results');
   const [passcode, setPasscode] = useState('');
@@ -641,7 +647,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                             }
                             className="w-full px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-900 text-xs focus:outline-none focus:border-blue-500"
                           >
-                            {VENUES.map(v => (
+                            {(availableVenues.includes(eventFormData.venue)
+                              ? availableVenues
+                              : [eventFormData.venue, ...availableVenues]
+                            ).map(v => (
                               <option key={v} value={v}>
                                 {v}
                               </option>

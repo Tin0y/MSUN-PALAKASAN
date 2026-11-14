@@ -55,7 +55,16 @@ export const AdminEventDetailModal: React.FC<AdminEventDetailModalProps> = ({
     rescheduleEvent,
     changeVenue,
     changeParticipants,
+    venues,
   } = usePalakasan();
+
+  const availableVenues = React.useMemo(() => {
+    const base = venues.length > 0 ? venues.map(v => v.name) : VENUES;
+    if (event?.venue && !base.includes(event.venue)) {
+      return [event.venue, ...base];
+    }
+    return base;
+  }, [venues, event?.venue]);
 
   const [isRescheduling, setIsRescheduling] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState('');
@@ -63,7 +72,7 @@ export const AdminEventDetailModal: React.FC<AdminEventDetailModalProps> = ({
   const [rescheduleEndTime, setRescheduleEndTime] = useState('');
 
   const [isChangingVenue, setIsChangingVenue] = useState(false);
-  const [selectedNewVenue, setSelectedNewVenue] = useState(VENUES[0]);
+  const [selectedNewVenue, setSelectedNewVenue] = useState(availableVenues[0] || VENUES[0]);
 
   const [isManagingParticipants, setIsManagingParticipants] = useState(false);
   const [selectedParticipants, setSelectedParticipants] = useState<CollegeId[]>([]);
@@ -448,7 +457,7 @@ export const AdminEventDetailModal: React.FC<AdminEventDetailModalProps> = ({
                 onChange={e => setSelectedNewVenue(e.target.value)}
                 className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs"
               >
-                {VENUES.map(v => (
+                {availableVenues.map(v => (
                   <option key={v} value={v}>
                     {v}
                   </option>

@@ -26,7 +26,16 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   onOpenEventModal,
   onOpenCollegeModal,
 }) => {
-  const { events, colleges } = usePalakasan();
+  const { events, colleges, venues } = usePalakasan();
+
+  const availableVenues = useMemo(() => {
+    const base = venues.length > 0 ? venues.map(v => v.name) : VENUES;
+    const set = new Set<string>(base);
+    events.forEach(e => {
+      if (e.venue?.trim()) set.add(e.venue.trim());
+    });
+    return Array.from(set);
+  }, [venues, events]);
 
   // Filters State
   const [selectedCategory, setSelectedCategory] = useState<CategoryId | 'all'>('all');
@@ -209,7 +218,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
               className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-xs focus:outline-none focus:border-blue-500"
             >
               <option value="all">All Venues</option>
-              {VENUES.map(v => (
+              {availableVenues.map(v => (
                 <option key={v} value={v}>
                   {v}
                 </option>
